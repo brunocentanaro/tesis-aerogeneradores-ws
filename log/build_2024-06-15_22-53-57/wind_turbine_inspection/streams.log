@@ -1,0 +1,32 @@
+[0.918s] Invoking command in '/home/bruno/auto_wt_scan_ws/src/wind_turbine_inspection': CMAKE_PREFIX_PATH=/home/bruno/auto_wt_scan_ws/install/px4_msgs:/home/bruno/auto_wt_scan_ws/install/px4_ros_com LD_LIBRARY_PATH=/home/bruno/auto_wt_scan_ws/install/px4_msgs/lib:/home/bruno/auto_wt_scan_ws/install/px4_ros_com/lib:/opt/ros/humble/opt/rviz_ogre_vendor/lib:/opt/ros/humble/lib/x86_64-linux-gnu:/opt/ros/humble/lib PYTHONPATH=/home/bruno/auto_wt_scan_ws/build/wind_turbine_inspection/prefix_override:/home/bruno/auto_wt_scan_ws/install/wind_turbine_inspection/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated setup.py egg_info --egg-base ../../build/wind_turbine_inspection build --build-base /home/bruno/auto_wt_scan_ws/build/wind_turbine_inspection/build install --record /home/bruno/auto_wt_scan_ws/build/wind_turbine_inspection/install.log --single-version-externally-managed install_data
+[1.123s] running egg_info
+[1.138s] writing ../../build/wind_turbine_inspection/wind_turbine_inspection.egg-info/PKG-INFO
+[1.138s] writing dependency_links to ../../build/wind_turbine_inspection/wind_turbine_inspection.egg-info/dependency_links.txt
+[1.139s] writing requirements to ../../build/wind_turbine_inspection/wind_turbine_inspection.egg-info/requires.txt
+[1.139s] writing top-level names to ../../build/wind_turbine_inspection/wind_turbine_inspection.egg-info/top_level.txt
+[1.169s] reading manifest file '../../build/wind_turbine_inspection/wind_turbine_inspection.egg-info/SOURCES.txt'
+[1.169s] adding license file 'LICENSE'
+[1.170s] writing manifest file '../../build/wind_turbine_inspection/wind_turbine_inspection.egg-info/SOURCES.txt'
+[1.170s] running build
+[1.170s] running build_py
+[1.171s] copying wind_turbine_inspection/KeyPressModule.py -> /home/bruno/auto_wt_scan_ws/build/wind_turbine_inspection/build/lib/wind_turbine_inspection
+[1.171s] copying wind_turbine_inspection/visualizer.py -> /home/bruno/auto_wt_scan_ws/build/wind_turbine_inspection/build/lib/wind_turbine_inspection
+[1.171s] copying wind_turbine_inspection/__init__.py -> /home/bruno/auto_wt_scan_ws/build/wind_turbine_inspection/build/lib/wind_turbine_inspection
+[1.171s] copying wind_turbine_inspection/velocity_control.py -> /home/bruno/auto_wt_scan_ws/build/wind_turbine_inspection/build/lib/wind_turbine_inspection
+[1.171s] copying wind_turbine_inspection/keyboard-mavsdk-test.py -> /home/bruno/auto_wt_scan_ws/build/wind_turbine_inspection/build/lib/wind_turbine_inspection
+[1.172s] copying wind_turbine_inspection/control.py -> /home/bruno/auto_wt_scan_ws/build/wind_turbine_inspection/build/lib/wind_turbine_inspection
+[1.172s] copying wind_turbine_inspection/processes.py -> /home/bruno/auto_wt_scan_ws/build/wind_turbine_inspection/build/lib/wind_turbine_inspection
+[1.172s] running install
+[1.180s] running install_lib
+[1.196s] running install_data
+[1.196s] copying resource/wind_turbine_inspection -> /home/bruno/auto_wt_scan_ws/install/wind_turbine_inspection/share/ament_index/resource_index/packages
+[1.196s] copying resource/visualize.rviz -> /home/bruno/auto_wt_scan_ws/install/wind_turbine_inspection/share/ament_index/resource_index/packages
+[1.196s] copying package.xml -> /home/bruno/auto_wt_scan_ws/install/wind_turbine_inspection/share/wind_turbine_inspection
+[1.196s] copying launch/wind_turbine_inspection.launch.py -> /home/bruno/auto_wt_scan_ws/install/wind_turbine_inspection/share/wind_turbine_inspection
+[1.196s] copying resource/visualize.rviz -> /home/bruno/auto_wt_scan_ws/install/wind_turbine_inspection/share/wind_turbine_inspection
+[1.197s] running install_egg_info
+[1.215s] removing '/home/bruno/auto_wt_scan_ws/install/wind_turbine_inspection/lib/python3.10/site-packages/wind_turbine_inspection-0.0.0-py3.10.egg-info' (and everything under it)
+[1.215s] Copying ../../build/wind_turbine_inspection/wind_turbine_inspection.egg-info to /home/bruno/auto_wt_scan_ws/install/wind_turbine_inspection/lib/python3.10/site-packages/wind_turbine_inspection-0.0.0-py3.10.egg-info
+[1.216s] running install_scripts
+[1.345s] writing list of installed files to '/home/bruno/auto_wt_scan_ws/build/wind_turbine_inspection/install.log'
+[1.369s] Invoked command in '/home/bruno/auto_wt_scan_ws/src/wind_turbine_inspection' returned '0': CMAKE_PREFIX_PATH=/home/bruno/auto_wt_scan_ws/install/px4_msgs:/home/bruno/auto_wt_scan_ws/install/px4_ros_com LD_LIBRARY_PATH=/home/bruno/auto_wt_scan_ws/install/px4_msgs/lib:/home/bruno/auto_wt_scan_ws/install/px4_ros_com/lib:/opt/ros/humble/opt/rviz_ogre_vendor/lib:/opt/ros/humble/lib/x86_64-linux-gnu:/opt/ros/humble/lib PYTHONPATH=/home/bruno/auto_wt_scan_ws/build/wind_turbine_inspection/prefix_override:/home/bruno/auto_wt_scan_ws/install/wind_turbine_inspection/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated setup.py egg_info --egg-base ../../build/wind_turbine_inspection build --build-base /home/bruno/auto_wt_scan_ws/build/wind_turbine_inspection/build install --record /home/bruno/auto_wt_scan_ws/build/wind_turbine_inspection/install.log --single-version-externally-managed install_data

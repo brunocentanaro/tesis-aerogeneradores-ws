@@ -1,0 +1,4 @@
+[console_scripts]
+controlV2 = wind_turbine_inspection.controlV2:main
+processes = wind_turbine_inspection.processes:main
+visualizer = wind_turbine_inspection.visualizer:main

@@ -1,0 +1,26 @@
+running egg_info
+writing ../../build/wind_turbine_detection/wind_turbine_detection.egg-info/PKG-INFO
+writing dependency_links to ../../build/wind_turbine_detection/wind_turbine_detection.egg-info/dependency_links.txt
+writing entry points to ../../build/wind_turbine_detection/wind_turbine_detection.egg-info/entry_points.txt
+writing requirements to ../../build/wind_turbine_detection/wind_turbine_detection.egg-info/requires.txt
+writing top-level names to ../../build/wind_turbine_detection/wind_turbine_detection.egg-info/top_level.txt
+reading manifest file '../../build/wind_turbine_detection/wind_turbine_detection.egg-info/SOURCES.txt'
+adding license file 'LICENSE'
+writing manifest file '../../build/wind_turbine_detection/wind_turbine_detection.egg-info/SOURCES.txt'
+running build
+running build_py
+copying wind_turbine_detection/__init__.py -> /home/bruno/auto_wt_scan_ws/build/wind_turbine_detection/build/lib/wind_turbine_detection
+copying wind_turbine_detection/image_subscriber.py -> /home/bruno/auto_wt_scan_ws/build/wind_turbine_detection/build/lib/wind_turbine_detection
+copying wind_turbine_detection/__init__.py -> /home/bruno/auto_wt_scan_ws/build/wind_turbine_detection/build/lib/wind_turbine_detection
+copying wind_turbine_detection/image_subscriber.py -> /home/bruno/auto_wt_scan_ws/build/wind_turbine_detection/build/lib/wind_turbine_detection
+running install
+running install_lib
+running install_data
+copying resource/wind_turbine_detection -> /home/bruno/auto_wt_scan_ws/install/wind_turbine_detection/share/ament_index/resource_index/packages
+copying package.xml -> /home/bruno/auto_wt_scan_ws/install/wind_turbine_detection/share/wind_turbine_detection
+running install_egg_info
+removing '/home/bruno/auto_wt_scan_ws/install/wind_turbine_detection/lib/python3.10/site-packages/wind_turbine_detection-0.0.0-py3.10.egg-info' (and everything under it)
+Copying ../../build/wind_turbine_detection/wind_turbine_detection.egg-info to /home/bruno/auto_wt_scan_ws/install/wind_turbine_detection/lib/python3.10/site-packages/wind_turbine_detection-0.0.0-py3.10.egg-info
+running install_scripts
+Installing image_subscriber script to /home/bruno/auto_wt_scan_ws/install/wind_turbine_detection/lib/wind_turbine_detection
+writing list of installed files to '/home/bruno/auto_wt_scan_ws/build/wind_turbine_detection/install.log'
