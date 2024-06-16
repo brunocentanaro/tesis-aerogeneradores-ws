@@ -1,0 +1,9 @@
+Metadata-Version: 2.1
+Name: wind_turbine_detection
+Version: 0.0.0
+Summary: TODO: Package description
+Maintainer: bruno
+Maintainer-email: bcentanaro@gmail.com
+License: Apache-2.0
+License-File: LICENSE
+Requires-Dist: setuptools
