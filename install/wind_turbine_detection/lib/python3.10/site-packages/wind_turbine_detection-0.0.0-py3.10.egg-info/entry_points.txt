@@ -1,3 +1,0 @@
-[console_scripts]
-image_subscriber = wind_turbine_detection.image_subscriber:main
-processes = wind_turbine_detection.processes:main

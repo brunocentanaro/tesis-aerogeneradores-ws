@@ -1,1 +1,0 @@
-Invoking command in '/home/bruno/auto_wt_scan_ws/build/px4_msgs': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake /home/bruno/auto_wt_scan_ws/src/px4_msgs -DCMAKE_INSTALL_PREFIX=/home/bruno/auto_wt_scan_ws/install/px4_msgs
