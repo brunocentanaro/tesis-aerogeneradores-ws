@@ -24,8 +24,8 @@ class ImageSubscriber(Node):
             10)
         self.subscription
         self.br = CvBridge()
-        print(model.names)
-        print(modelNotTurbine.names)
+        # print(model.names)
+        # print(modelNotTurbine.names)
    
     def listener_callback(self, data):
         self.get_logger().info('Receiving video frame')

@@ -12,6 +12,10 @@ def generate_launch_description():
         get_package_share_directory('wind_turbine_detection'),
         'wind_turbine_detection.launch.py'
     )
+    control_launch_path = os.path.join(
+        get_package_share_directory('drone_control'),
+        'drone_control.launch.py'
+    )
     return LaunchDescription([
         Node(
             package='wind_turbine_inspection',
@@ -33,15 +37,19 @@ def generate_launch_description():
             name='rviz2',
             arguments=['-d', [os.path.join(package_dir, 'visualize.rviz')]]
         ),
-        Node(
-            package='wind_turbine_inspection',
-            namespace='wind_turbine_inspection',
-            executable='controlV2',
-            name='controlV2',
-            output='screen',
-            prefix='gnome-terminal --'
-        ),
+        # Node(
+        #     package='wind_turbine_inspection',
+        #     namespace='wind_turbine_inspection',
+        #     executable='controlV2',
+        #     name='controlV2',
+        #     output='screen',
+        #     prefix='gnome-terminal --'
+        # ),
          IncludeLaunchDescription(
             PythonLaunchDescriptionSource(detection_launch_path)
+        )
+        ,
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(control_launch_path)
         )
     ])
