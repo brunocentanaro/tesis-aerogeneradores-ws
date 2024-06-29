@@ -1,6 +1,0 @@
-source;share/wind_turbine_inspection/hook/pythonpath.ps1
-source;share/wind_turbine_inspection/hook/pythonpath.dsv
-source;share/wind_turbine_inspection/hook/pythonpath.sh
-source;share/wind_turbine_inspection/hook/ament_prefix_path.ps1
-source;share/wind_turbine_inspection/hook/ament_prefix_path.dsv
-source;share/wind_turbine_inspection/hook/ament_prefix_path.sh
