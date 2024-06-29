@@ -39,6 +39,7 @@ def generate_launch_description():
             executable='controlV2',
             name='controlV2',
             output='screen',
+            prefix='gnome-terminal --'
         ),
          IncludeLaunchDescription(
             PythonLaunchDescriptionSource(detection_launch_path)
