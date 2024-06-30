@@ -32,7 +32,7 @@ class ImageSubscriber(Node):
         current_frame = self.br.imgmsg_to_cv2(data, desired_encoding="bgr8")
         image = current_frame
         results = model.predict(image)
-        print(model.names) 
+        # print(model.names) 
         img = results[0].plot()
         cv2.imshow('Detected Frame', img)    
         cv2.waitKey(1)

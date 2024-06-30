@@ -31,20 +31,20 @@ def generate_launch_description():
             prefix='gnome-terminal --'
         ),
         Node(
+            package='wind_turbine_inspection',
+            namespace='wind_turbine_inspection',
+            executable='mission_state_handler',
+            name='mission_state_handler',
+            prefix='gnome-terminal --',
+            output='screen'
+        ),
+        Node(
             package='rviz2',
             namespace='',
             executable='rviz2',
             name='rviz2',
             arguments=['-d', [os.path.join(package_dir, 'visualize.rviz')]]
         ),
-        # Node(
-        #     package='wind_turbine_inspection',
-        #     namespace='wind_turbine_inspection',
-        #     executable='controlV2',
-        #     name='controlV2',
-        #     output='screen',
-        #     prefix='gnome-terminal --'
-        # ),
          IncludeLaunchDescription(
             PythonLaunchDescriptionSource(detection_launch_path)
         )
