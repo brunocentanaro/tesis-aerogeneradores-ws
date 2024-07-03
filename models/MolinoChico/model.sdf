@@ -1,0 +1,50 @@
+<?xml version="1.0" ?>
+<sdf version="1.6">
+  <model name="Molino">
+    <static>true</static>
+    <link name="link">
+    
+      <collision name="collision">
+        <geometry>
+          <mesh>
+            <scale>0.0274 0.0274 0.0274</scale>
+            <uri>model://Molino/meshes/Wind_Turbine.stl</uri>
+          </mesh>
+        </geometry>
+      </collision>
+      
+      <visual name="visual">
+             <cast_shadows>true</cast_shadows>
+      
+        <geometry>
+          <mesh>
+            <scale>0.0274 0.0274 0.0274</scale>
+            <uri>model://Molino/meshes/Wind_Turbine.stl</uri>
+          </mesh>
+        </geometry>
+        <material>
+    <diffuse>1 1 1 1</diffuse>
+</material>
+      </visual>
+      
+    <inertial>
+      <mass>1.2</mass>
+      <inertia>
+        <ixx>0.001087473</ixx>
+        <iyy>0.001087473</iyy>
+        <izz>0.001092437</izz>
+        <ixy>0</ixy>
+        <ixz>0</ixz>
+        <iyz>0</iyz>
+      </inertia>
+    </inertial>
+      
+      
+    </link>
+  </model>
+</sdf>
+
+
+
+
+
