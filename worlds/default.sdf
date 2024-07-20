@@ -1,9 +1,8 @@
-﻿<?xml version="1.0" encoding="UTF-8"?>
-<sdf version="1.9">
+<sdf version="1.10">
   <world name="default">
     <physics type="ode">
-      <max_step_size>0.004</max_step_size>
-      <real_time_factor>1.0</real_time_factor>
+      <max_step_size>0.0040000000000000001</max_step_size>
+      <real_time_factor>1</real_time_factor>
       <real_time_update_rate>250</real_time_update_rate>
     </physics>
     <plugin name="gz::sim::systems::Physics" filename="gz-sim-physics-system"/>
@@ -18,8 +17,7 @@
       <render_engine>ogre2</render_engine>
     </plugin>
     <gui fullscreen="false">
-      <!-- 3D scene -->
-      <plugin filename="MinimalScene" name="3D View">
+      <plugin name="3D View" filename="MinimalScene">
         <gz-gui>
           <title>3D View</title>
           <property type="bool" key="showTitleBar">false</property>
@@ -35,8 +33,7 @@
           <far>25000</far>
         </camera_clip>
       </plugin>
-      <!-- Plugins that add functionality to the scene -->
-      <plugin filename="EntityContextMenuPlugin" name="Entity context menu">
+      <plugin name="Entity context menu" filename="EntityContextMenuPlugin">
         <gz-gui>
           <property key="state" type="string">floating</property>
           <property key="width" type="double">5</property>
@@ -44,16 +41,7 @@
           <property key="showTitleBar" type="bool">false</property>
         </gz-gui>
       </plugin>
-      <plugin filename="GzSceneManager" name="Scene Manager">
-        <gz-gui>
-          <property key="resizable" type="bool">false</property>
-          <property key="width" type="double">5</property>
-          <property key="height" type="double">5</property>
-          <property key="state" type="string">floating</property>
-          <property key="showTitleBar" type="bool">false</property>
-        </gz-gui>
-      </plugin>
-      <plugin filename="InteractiveViewControl" name="Interactive view control">
+      <plugin name="Scene Manager" filename="GzSceneManager">
         <gz-gui>
           <property key="resizable" type="bool">false</property>
           <property key="width" type="double">5</property>
@@ -62,7 +50,7 @@
           <property key="showTitleBar" type="bool">false</property>
         </gz-gui>
       </plugin>
-      <plugin filename="CameraTracking" name="Camera Tracking">
+      <plugin name="Interactive view control" filename="InteractiveViewControl">
         <gz-gui>
           <property key="resizable" type="bool">false</property>
           <property key="width" type="double">5</property>
@@ -71,7 +59,7 @@
           <property key="showTitleBar" type="bool">false</property>
         </gz-gui>
       </plugin>
-      <plugin filename="MarkerManager" name="Marker manager">
+      <plugin name="Camera Tracking" filename="CameraTracking">
         <gz-gui>
           <property key="resizable" type="bool">false</property>
           <property key="width" type="double">5</property>
@@ -80,7 +68,16 @@
           <property key="showTitleBar" type="bool">false</property>
         </gz-gui>
       </plugin>
-      <plugin filename="SelectEntities" name="Select Entities">
+      <plugin name="Marker manager" filename="MarkerManager">
+        <gz-gui>
+          <property key="resizable" type="bool">false</property>
+          <property key="width" type="double">5</property>
+          <property key="height" type="double">5</property>
+          <property key="state" type="string">floating</property>
+          <property key="showTitleBar" type="bool">false</property>
+        </gz-gui>
+      </plugin>
+      <plugin name="Select Entities" filename="SelectEntities">
         <gz-gui>
           <anchors target="Select entities">
             <line own="right" target="right"/>
@@ -93,7 +90,7 @@
           <property key="showTitleBar" type="bool">false</property>
         </gz-gui>
       </plugin>
-      <plugin filename="VisualizationCapabilities" name="Visualization Capabilities">
+      <plugin name="Visualization Capabilities" filename="VisualizationCapabilities">
         <gz-gui>
           <property key="resizable" type="bool">false</property>
           <property key="width" type="double">5</property>
@@ -102,7 +99,7 @@
           <property key="showTitleBar" type="bool">false</property>
         </gz-gui>
       </plugin>
-      <plugin filename="Spawn" name="Spawn Entities">
+      <plugin name="Spawn Entities" filename="Spawn">
         <gz-gui>
           <anchors target="Select entities">
             <line own="right" target="right"/>
@@ -154,71 +151,45 @@
       </plugin>
       <plugin name="Entity tree" filename="EntityTree"/>
     </gui>
-    <gravity>0 0 -9.8</gravity>
-    <magnetic_field>6e-06 2.3e-05 -4.2e-05</magnetic_field>
+    <gravity>0 0 -9.8000000000000007</gravity>
+    <magnetic_field>6.0000000000000002e-06 2.3e-05 -4.1999999999999998e-05</magnetic_field>
     <atmosphere type="adiabatic"/>
     <scene>
       <grid>false</grid>
-      <ambient>0.4 0.4 0.4 1</ambient>
-      <background>0.7 0.7 0.7 1</background>
+      <ambient>0.400000006 0.400000006 0.400000006 1</ambient>
+      <background>0.699999988 0.699999988 0.699999988 1</background>
       <shadows>true</shadows>
     </scene>
-    <model name="ground_plane">
-      <static>true</static>
-      <link name="link">
-        <collision name="collision">
-          <geometry>
-            <plane>
-              <normal>0 0 1</normal>
-              <size>1 1</size>
-            </plane>
-          </geometry>
-          <surface>
-            <friction>
-              <ode/>
-            </friction>
-            <bounce/>
-            <contact/>
-          </surface>
-        </collision>
-        <visual name="visual">
-          <geometry>
-            <plane>
-              <normal>0 0 1</normal>
-              <size>100 100</size>
-            </plane>
-          </geometry>
-          <material>
-            <ambient>0.8 0.8 0.8 1</ambient>
-            <diffuse>0.8 0.8 0.8 1</diffuse>
-            <specular>0.8 0.8 0.8 1</specular>
-          </material>
-        </visual>
-        <pose>0 0 0 0 -0 0</pose>
-        <inertial>
-          <pose>0 0 0 0 -0 0</pose>
-          <mass>1</mass>
-          <inertia>
-            <ixx>1</ixx>
-            <ixy>0</ixy>
-            <ixz>0</ixz>
-            <iyy>1</iyy>
-            <iyz>0</iyz>
-            <izz>1</izz>
-          </inertia>
-        </inertial>
-        <enable_wind>false</enable_wind>
-      </link>
-      <pose>0 0 0 0 -0 0</pose>
-      <self_collide>false</self_collide>
-    </model>
+    <spherical_coordinates>
+      <surface_model>EARTH_WGS84</surface_model>
+      <world_frame_orientation>ENU</world_frame_orientation>
+      <latitude_deg>-34.628194999999998</latitude_deg>
+      <longitude_deg>-54.957673</longitude_deg>
+      <elevation>0</elevation>
+      <heading_deg>0</heading_deg>
+    </spherical_coordinates>
+    <include>
+      <uri>model://HeightmapChico</uri>
+      <name>heightmapC2300</name>
+      <pose>0 0 0 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://MolinoChico</uri>
+      <name>Molino</name>
+      <pose>-77.744102478027344 -140.76300048828125 53.679370880126953 0 0 -2.3641899921970122</pose>
+    </include>
+    <include>
+      <uri>model://MolinoChico</uri>
+      <name>Molino_0</name>
+      <pose>33.265899658203125 146.69599914550781 47.939193725585938 0 0 0</pose>
+    </include>
     <light name="sunUTC" type="directional">
-      <pose>0 0 500 0 -0 0</pose>
+      <pose>0 0 500 0 0 0</pose>
       <cast_shadows>true</cast_shadows>
       <intensity>1</intensity>
-      <direction>0.001 0.625 -0.78</direction>
-      <diffuse>0.904 0.904 0.904 1</diffuse>
-      <specular>0.271 0.271 0.271 1</specular>
+      <direction>0.001 0.625 -0.78000000000000003</direction>
+      <diffuse>0.903999984 0.903999984 0.903999984 1</diffuse>
+      <specular>0.270999998 0.270999998 0.270999998 1</specular>
       <attenuation>
         <range>2000</range>
         <linear>0</linear>
@@ -231,22 +202,5 @@
         <falloff>0</falloff>
       </spot>
     </light>
-      <spherical_coordinates>
-      <surface_model>EARTH_WGS84</surface_model>
-      <world_frame_orientation>ENU</world_frame_orientation>
-      <latitude_deg>-34.6289710</latitude_deg>
-      <longitude_deg>-54.9582140</longitude_deg>
-      <elevation>0</elevation>
-    </spherical_coordinates>
-   <include>
-      <uri>model://HeightmapChico</uri>
-      <pose>0 0 0 0 0 0</pose>
-
-    </include>
-       <include>
-      <uri>model://MolinoChico</uri>
-      <name>Molino1</name>
-      <pose>-1187.780029296875 -1189.4200439453125 88.381637573242188 0 0 0</pose>
-    </include>
   </world>
 </sdf>
