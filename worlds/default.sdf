@@ -159,6 +159,11 @@
       <ambient>0.400000006 0.400000006 0.400000006 1</ambient>
       <background>0.699999988 0.699999988 0.699999988 1</background>
       <shadows>true</shadows>
+      <sky>
+        <clouds>
+          <speed>12</speed>
+        </clouds>
+      </sky>
     </scene>
     <spherical_coordinates>
       <surface_model>EARTH_WGS84</surface_model>
@@ -179,9 +184,14 @@
       <pose>-77.744102478027344 -140.76300048828125 53.679370880126953 0 0 -2.3641899921970122</pose>
     </include>
     <include>
-      <uri>model://MolinoChico</uri>
+      <uri>model://NuevoMolino</uri>
       <name>Molino_0</name>
-      <pose>33.265899658203125 146.69599914550781 47.939193725585938 0 0 0</pose>
+      <pose>33.30059814453125 145.95100402832031 59.433998107910156 3.1228458465232052 0.025870999023636362 -0.20191499072161978</pose>
+    </include>
+    <include>
+      <uri>model://NuevoMolino</uri>
+      <name>Molino_test</name>
+      <pose>-68.569267272949219 -133.04951477050781 65.096298217773438 -3.1145399991715426 0.0086258400609852542 2.7410100081371769</pose>
     </include>
     <include>
       <uri>model://x500_depth</uri>
