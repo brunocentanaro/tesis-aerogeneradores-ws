@@ -30,14 +30,14 @@ def generate_launch_description():
             name='processes',
             prefix='gnome-terminal --'
         ),
-        Node(
-            package='wind_turbine_inspection',
-            namespace='wind_turbine_inspection',
-            executable='mission_state_handler',
-            name='mission_state_handler',
-            prefix='gnome-terminal --',
-            output='screen'
-        ),
+        # Node(
+        #     package='wind_turbine_inspection',
+        #     namespace='wind_turbine_inspection',
+        #     executable='mission_state_handler',
+        #     name='mission_state_handler',
+        #     prefix='gnome-terminal --',
+        #     output='screen'
+        # ),
         Node(
             package='rviz2',
             namespace='',
