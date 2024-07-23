@@ -29,6 +29,7 @@ setup(
             'processes = wind_turbine_inspection.processes:main',
             'visualizer = wind_turbine_inspection.visualizer:main',
             'controlV2 = wind_turbine_inspection.controlV2:main',
+            'mission_state_handler = wind_turbine_inspection.mission_state_handler:main'
         ],
     },
 )
