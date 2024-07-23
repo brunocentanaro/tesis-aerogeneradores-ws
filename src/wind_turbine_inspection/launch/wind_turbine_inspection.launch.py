@@ -21,7 +21,8 @@ def generate_launch_description():
             package='wind_turbine_inspection',
             namespace='wind_turbine_inspection',
             executable='visualizer',
-            name='visualizer'
+            name='visualizer',
+            prefix='gnome-terminal --'
         ),
         Node(
             package='wind_turbine_inspection',
@@ -43,7 +44,8 @@ def generate_launch_description():
             namespace='',
             executable='rviz2',
             name='rviz2',
-            arguments=['-d', [os.path.join(package_dir, 'visualize.rviz')]]
+            arguments=['-d', [os.path.join(package_dir, 'visualize.rviz')]],
+            prefix='gnome-terminal --'
         ),
          IncludeLaunchDescription(
             PythonLaunchDescriptionSource(detection_launch_path)
