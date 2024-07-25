@@ -1,8 +1,35 @@
 import rclpy
 from rclpy.node import Node
-from px4_msgs.msg import OffboardControlMode, TrajectorySetpoint, VehicleCommand, ManualControlSetpoint
+from px4_msgs.msg import OffboardControlMode, TrajectorySetpoint, VehicleCommand, ManualControlSetpoint, SensorGps
 from std_msgs.msg import String
-import time
+from rclpy.qos import QoSProfile, QoSDurabilityPolicy, QoSReliabilityPolicy
+import math
+
+def distance_and_bearing(lat1, lon1, lat2, lon2):
+    # Convertir grados a radianes
+    lat1_rad = math.radians(lat1)
+    lon1_rad = math.radians(lon1)
+    lat2_rad = math.radians(lat2)
+    lon2_rad = math.radians(lon2)
+    
+    # Radio de la Tierra en metros
+    R = 6371000
+    
+    # Diferencias de coordenadas
+    dlat = lat2_rad - lat1_rad
+    dlon = lon2_rad - lon1_rad
+    
+    # Fórmula de Haversine
+    a = math.sin(dlat / 2) ** 2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon / 2) ** 2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    distance = R * c
+    
+    # Fórmula para el ángulo
+    x = math.sin(dlon) * math.cos(lat2_rad)
+    y = math.cos(lat1_rad) * math.sin(lat2_rad) - math.sin(lat1_rad) * math.cos(lat2_rad) * math.cos(dlon)
+    bearing = math.atan2(x, y)
+    
+    return distance, bearing
 
 class OffboardControl(Node):
     def __init__(self):
@@ -14,19 +41,67 @@ class OffboardControl(Node):
 
         self.offboard_setpoint_counter = 0
         self.previous_setpoint = [0.0, 0.0, 0.0]
-        self.current_setpoint = [0.0, 0.0, -5.0]  # Inicializar con la posición de despegue
+        self.current_setpoint = [0.0, 0.0, -5.0]
+        self.currentYaw = 0.0
+        self.previousYaw = 0.0
         self.current_manual_control_setpoint = [0.0, 0.0, 0.5, 0.0]
 
         self.timer = self.create_timer(0.1, self.timer_callback)
 
         self.subscription = self.create_subscription(
             String,
-            'waypoint',
-            self.listener_callback,
+            'distance_waypoint',
+            self.distanceWaypointCallback,
+            10)
+        
+        self.gpsWaypointCallback = self.create_subscription(
+            String,
+            'gps_waypoint',
+            self.gpsWaypointCallback,
             10)
         
         self.desired_speed = 0.5
         self.in_manual_speed_mode = True
+
+        qos_profile = QoSProfile(
+            reliability=QoSReliabilityPolicy.BEST_EFFORT,
+            durability=QoSDurabilityPolicy.TRANSIENT_LOCAL,
+            history=rclpy.qos.QoSHistoryPolicy.KEEP_LAST,
+            depth=100
+        )
+
+        self.subscription = self.create_subscription(
+            SensorGps,
+            '/fmu/out/vehicle_gps_position',
+            self.listener_callback1,
+            qos_profile
+        )
+ 
+
+    def listener_callback1(self, msg):
+        # self.get_logger().info('Received: "%s"' % msg)
+        self.currentPosition = [msg.latitude_deg, msg.longitude_deg, msg.altitude_msl_m]
+        self.currentCOG = msg.cog_rad
+
+    def gpsWaypointCallback(self, msg):
+        self.get_logger().info('Received: "%s"' % msg.data)
+        try:
+            latitude, longitude, altitude = map(float, msg.data.split(','))
+            if not self.currentPosition or not self.currentCOG:
+                self.get_logger().error('No GPS data available')
+                return
+        
+            distance, yaw = distance_and_bearing(
+                self.currentPosition[0], self.currentPosition[1],
+                latitude, longitude
+            )
+            distanceForward = distance * math.cos(yaw)
+            distanceRight = distance * math.sin(yaw)
+            self.get_logger().info(f'distance: {distance}, yaw: {yaw}')
+            self.setNewSetpoint(distanceForward, distanceRight, 0, yaw)
+        except ValueError:
+            self.get_logger().error('Invalid waypoint format. Expected format: "latitude,longitude,altitude')
+
 
     def timer_callback(self):
         if self.offboard_setpoint_counter == 200:
@@ -39,19 +114,24 @@ class OffboardControl(Node):
         if self.offboard_setpoint_counter < 201:
             self.offboard_setpoint_counter += 1
 
-    def listener_callback(self, msg):
+    def distanceWaypointCallback(self, msg):
         self.get_logger().info('Received: "%s"' % msg.data)
         try:
 
             x, y, z = map(float, msg.data.split(','))
-            self.previous_setpoint = self.current_setpoint
-            self.current_setpoint = [
-                self.previous_setpoint[0] + x,
-                self.previous_setpoint[1] + y,
-                self.previous_setpoint[2] + z
-            ]
+            self.setNewSetpoint(x, y, z, self.currentYaw)
         except ValueError:
             self.get_logger().error('Invalid waypoint format. Expected format: "x,y,z"')
+
+    def setNewSetpoint (self, x, y, z, yaw):
+        self.previousYaw = self.currentYaw
+        self.previous_setpoint = self.current_setpoint
+        self.current_setpoint = [
+            self.previous_setpoint[0] + x,
+            self.previous_setpoint[1] + y,
+            self.previous_setpoint[2] + z,
+        ]
+        self.currentYaw = yaw
 
     def arm(self):
         self.publish_vehicle_command(VehicleCommand.VEHICLE_CMD_COMPONENT_ARM_DISARM, 1.0)
@@ -69,14 +149,13 @@ class OffboardControl(Node):
         msg.attitude = attitude
         msg.body_rate = body_rate
         msg.timestamp = self.get_clock().now().nanoseconds // 1000
-        self.get_logger().info('Publishing offboard control mode' + str(msg))
         self.offboard_control_mode_publisher.publish(msg)
 
     def publish_trajectory_setpoint(self):
         msg = TrajectorySetpoint()
 
-        msg.position = self.current_setpoint
         x, y, z = self.current_setpoint
+        msg.position = [x,y,z]
         max_distance = max(abs(x), abs(y), abs(z))
         movement_time = max_distance / self.desired_speed
         self.velocity = [
@@ -84,7 +163,7 @@ class OffboardControl(Node):
             (y - self.previous_setpoint[1])/ movement_time,
             (z - self.previous_setpoint[2])/ movement_time
         ]
-        msg.yaw = 0.0 # [-PI:PI]
+        msg.yaw = self.currentYaw
         msg.timestamp = self.get_clock().now().nanoseconds // 1000
         self.trajectory_setpoint_publisher.publish(msg)
 
