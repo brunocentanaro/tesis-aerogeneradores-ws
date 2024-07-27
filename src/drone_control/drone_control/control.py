@@ -1,6 +1,6 @@
 import rclpy
 from rclpy.node import Node
-from px4_msgs.msg import OffboardControlMode, TrajectorySetpoint, VehicleCommand, ManualControlSetpoint, SensorGps
+from px4_msgs.msg import OffboardControlMode, TrajectorySetpoint, VehicleCommand, ManualControlSetpoint, SensorGps, VehicleGlobalPosition
 from std_msgs.msg import String
 from rclpy.qos import QoSProfile, QoSDurabilityPolicy, QoSReliabilityPolicy
 import math
@@ -76,11 +76,19 @@ class OffboardControl(Node):
             self.listener_callback1,
             qos_profile
         )
- 
+
+        self.globalPositionSubscription = self.create_subscription(
+            VehicleGlobalPosition,
+            '/fmu/out/vehicle_global_position',
+            self.globalPositionCallback,
+            qos_profile
+        )
+    
+    def globalPositionCallback(self, msg):
+        self.currentPosition = [msg.lat, msg.lon, msg.alt]
+
 
     def listener_callback1(self, msg):
-        # self.get_logger().info('Received: "%s"' % msg)
-        self.currentPosition = [msg.latitude_deg, msg.longitude_deg, msg.altitude_msl_m]
         self.currentCOG = msg.cog_rad
 
     def gpsWaypointCallback(self, msg):
