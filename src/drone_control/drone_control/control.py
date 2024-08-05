@@ -103,6 +103,17 @@ class OffboardControl(Node):
             10
         )
 
+        self.nearTicker =0
+        self.advanceToNextWaypoint = self.create_subscription(
+            String,
+            'advance_to_next_waypoint',
+            self.advanceToNextWaypointCallback,
+            10
+        )
+
+    def advanceToNextWaypointCallback(self, msg):
+        self.processing_waypoint = False
+
     def localPositionCallback(self, msg):
         self.localPosition = [msg.x, msg.y, msg.z]
     
@@ -147,12 +158,23 @@ class OffboardControl(Node):
             x = 0.0
             y = bladeLength * math.cos(math.radians(angleFromHorizontal))
             z = bladeLength * math.sin(math.radians(angleFromHorizontal))
-            self.wayPointsStack.append((x,y,z,0.0))
-            self.wayPointsStack.append((x, -2 *y, 0, 0.0))
-            self.wayPointsStack.append((x,y, -z, 0.0))
-            self.wayPointsStack.append((x, 0, -bladeLength, 0.0))
+            self.addIntermediateWaypoints(x, y, z, 0.0)
+            self.addIntermediateWaypoints(x, -2 * y, 0, 0.0)
+            self.addIntermediateWaypoints(x, y, -z, 0.0)
+            self.addIntermediateWaypoints(x, 0, -bladeLength, 0.0)
         except ValueError:
             self.get_logger().error('Invalid waypoint format. Expected format: "x,y,z"')
+
+    def addIntermediateWaypoints(self, x, y, z, yaw):
+        maxDistance = max(abs(x), abs(y), abs(z))
+        distancePerWaypoint = 1
+        numWaypoints = int(maxDistance / distancePerWaypoint)
+        xStep = x / numWaypoints
+        yStep = y / numWaypoints
+        zStep = z / numWaypoints
+        yawStep = yaw / numWaypoints
+        for i in range(numWaypoints):
+            self.wayPointsStack.append((xStep, yStep, zStep, yawStep))
 
     def distanceWaypointCallback(self, msg):
         self.get_logger().info('Received: "%s"' % msg.data)
@@ -198,7 +220,7 @@ class OffboardControl(Node):
         msg = OffboardControlMode()
         msg.position = True
         msg.velocity = True
-        msg.acceleration = False
+        msg.acceleration = True
         msg.attitude = False
         msg.body_rate = False
         msg.timestamp = self.get_clock().now().nanoseconds // 1000
@@ -220,14 +242,22 @@ class OffboardControl(Node):
             distanceToCoverZ = z - self.localPosition[2]
 
         max_distance = max(abs(distanceToCoverX), abs(distanceToCoverY), abs(distanceToCoverZ))
-        if max_distance < 0.1:
+        if max_distance < 0.2:
             self.processing_waypoint = False
+            self.nearTicker = 0
+        elif max_distance < 0.5:
+            self.nearTicker += 1
+            if self.nearTicker > 5:
+                self.get_logger().info('Ticks near this waypoint: %s' % self.nearTicker)
+
         movement_time = max_distance / self.desired_speed
-        self.velocity = [
-            (distanceToCoverX) / movement_time,
-            (distanceToCoverY) / movement_time,
-            (distanceToCoverZ) / movement_time
-        ]
+        # msg.velocity = [
+        #     self.desiredVelocityX,
+        #     self.desiredVelocityY,
+        #     self.desiredVelocityZ
+        # ]
+        msg.acceleration = [0.2, 0.2, 0.2]
+
         msg.yaw = self.currentYaw
         msg.timestamp = self.get_clock().now().nanoseconds // 1000
         self.trajectory_setpoint_publisher.publish(msg)
