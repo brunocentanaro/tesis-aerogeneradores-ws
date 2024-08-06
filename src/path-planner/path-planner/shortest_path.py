@@ -12,14 +12,13 @@ from typing import List
 from Visualizer.utils.colors import get_distinct_color
 from objects.mesh_base import Wireframe, unit_vector
 from polynomial_fitting import plot_data
-from tranformation.transform import TRotation, Transform
+from transformation.transform import TRotation, Transform
 from utils.folder import get_project_root
 from k_means_constrained import KMeansConstrained
 
 cache = {}
 data = {}
 use_cache = True
-
 
 class Section:
     def __init__(self, points, normal, color):
@@ -298,7 +297,7 @@ def shortest_path(sections: List[Section], multiplier=10, turn_cost=0, test_all_
         for _ in ps:
             point_normals.append(section_unscaled.normal)
         skip = not section_unscaled.is_one_point_section
-    # plot_data(np.array(resulting_points), np.array(resulting_points), "testing_results")
+#    plot_data(np.array(resulting_points), np.array(resulting_points), "testing_results", True, False)
     # Draw each section with index number
     # debug = 0
     # skip = False
@@ -548,10 +547,10 @@ def save_traj(filename, traj):
 
 
 if __name__ == '__main__':
-    seed = 214
+    seed = 21
     np.random.seed(seed)
     random.seed(seed)
-    wt = Wireframe.from_stl_path('data/in/turbine_v6.stl')
+    wt = Wireframe.from_stl_path('stl_gen/turbine.stl')
     r = Rotation.from_euler("XYZ", [0, 0, 90], degrees=True).as_matrix()
 
     r = TRotation().set_matrix(r, "XYZ")
@@ -564,7 +563,7 @@ if __name__ == '__main__':
     sections = []
     for i, (n, g) in enumerate(gps):
         sections.append(Section(g, n, get_distinct_color(i)))
-    # plot_data_color_sections(sections, "te")
+#    plot_data_color_sections(sections, "te", True, False)
     m = 10
     tc = 0
 
@@ -572,10 +571,10 @@ if __name__ == '__main__':
     save_traj(f"p162", np.array(traj))
     save_traj(f"n162", np.array(normals))
 
-    test_order_GP = [4, 5, 0, 1, 17, 16, 9, 10, 8, 7, 21, 20, 6, 13, 14, 12, 11, 15, 18, 19, 3, 2]
-    find_dist_of_order(test_order_GP, sections, multiplier=m, turn_cost=tc)
+#    test_order_GP = [4, 5, 0, 1, 17, 16, 9, 10, 8, 7, 21, 20, 6, 13, 14, 12, 11, 15, 18, 19, 3, 2]
+#    find_dist_of_order(test_order_GP, sections, multiplier=m, turn_cost=tc)
 
-    tc_0_best_order = [4, 5, 0, 1, 8, 7, 21, 20, 6, 13, 14, 9, 10, 17, 16, 12, 11, 15, 18, 19, 3, 2]
-    find_dist_of_order(tc_0_best_order, sections, multiplier=m, turn_cost=tc)
+#    tc_0_best_order = [4, 5, 0, 1, 8, 7, 21, 20, 6, 13, 14, 9, 10, 17, 16, 12, 11, 15, 18, 19, 3, 2]
+#    find_dist_of_order(tc_0_best_order, sections, multiplier=m, turn_cost=tc)
 
     debug = 0

@@ -1,7 +1,6 @@
 import time
 import numpy as np
 
-
 def timeit(func, args, enum):
     tt = 0
     for i in range(enum):
@@ -9,7 +8,6 @@ def timeit(func, args, enum):
         d = func(*args)
         tt += time.perf_counter() - t
     print(f"{tt / enum}")
-
 
 def numpy_print_test(length):
     a = np.zeros(length)
@@ -20,7 +18,6 @@ def numpy_print_test(length):
     timeit(np.array2string, [a], 10000)
     print("list ", end="")
     timeit(str, [al], 10000)
-
 
 if __name__ == '__main__':
     numpy_print_test(10000)
