@@ -1,11 +1,9 @@
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 
-
 ###################################################
 # CLASSES                                         #
 ###################################################
-
 
 class TRotation(object):
     def __init__(self, angle=0, axis='x', degrees=True, left_hand=False):
