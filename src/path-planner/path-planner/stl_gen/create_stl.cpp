@@ -37,7 +37,7 @@ int up;
 
 float w=3;    // center(hub) width, affects vertical blade width 
 float b_w=3;    // blade width
-float b_l=40;    // blade length
+float b_l=10;    // blade length
 float b_t=b_w/4;    // blade thickness
 float t_c=120*(2.0/3);    // height from vertical blade base to the ground
 
