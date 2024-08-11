@@ -25,8 +25,10 @@ class Section:
         self.points = np.array(points)
         self.normal = normal
         if len(self.points) > 1:
+            # Ordena los puntos segun su coordenada Z
             indices = np.argsort(self.points[:, 2])
             self.points = self.points[indices]
+            print("CREANDO SECTIONS", self.points[0], self.points[1])
             self.p1 = midpoint(self.points[0], self.points[1])  # lowest point (no need to sort)
             self.p2 = midpoint(self.points[-1], self.points[-2])  # highest point (need to reorder list)
         else:
@@ -201,6 +203,8 @@ def shortest_path(sections: List[Section], multiplier=10, turn_cost=0, test_all_
     # Change normals to not go in z
     m_sections = []
     for s in sections:
+        # scale_using_normal / escala las coordenadas X e Y en el sentido de su normal por un factor 'multiplier'.
+        # las Z quedan iguales
         m_sections.append(s.scale_using_normal(multiplier))
     best_dist = float('inf')
     points_to_sections = {}
@@ -233,12 +237,16 @@ def shortest_path(sections: List[Section], multiplier=10, turn_cost=0, test_all_
             points_us_str.append(s.p2_str)
 
     # Compute cost between nodes (turn cost, dist cost, invalid turns=-1)
+    # Hay 22 puntos en total 2 por lado + los dos individuales de cada lado.
+    # Cada punto representa el punto medio entre los dos de mayor/menor Z de ese lado
     edges = np.zeros((len(points), len(points)))
     for i, p in enumerate(points):
         n1 = normals[i]
         for j in range(i + 1, len(points)):
             p2 = points[j]
             n2 = normals[j]
+            # considera como invalido ir de un punto a otro con normales opuestas
+            # basicamente prohibido saltarse caras
             if np.all(n1 + n2 == np.zeros(3)):
                 d = -1
             else:
@@ -252,6 +260,7 @@ def shortest_path(sections: List[Section], multiplier=10, turn_cost=0, test_all_
     for p in points:
         d = dist(p, start_node)
         start_node_cost.append(d)
+    # array de los indices de las start_node_cost (que es igual al de los puntos) que los ordena de menor a mayor
     shortest_path_start = np.argsort(start_node_cost)
     for start_index in shortest_path_start:
         print(f"new_start = {start_index}")
@@ -338,8 +347,8 @@ def grouping(obj):
     centers = obj.center
     normals = obj.normals
 
+    # Diccionario de normales como key y como valor array que contiene a todos los centros del triangulo con esa normal
     grp = {}
-    # Group by normals
     string_to_normal = {}
     for i, n in enumerate(normals):
         n += np.zeros(3)
@@ -349,15 +358,18 @@ def grouping(obj):
             string_to_normal[str(n)] = n
         grp[str(n)].append(centers[i])
 
+    # Array de duplas (normal, [centros con esa normal])
     grps = []
+    # Minima cantidad de centros contenidos en un array que sea valor del diccionario grp
     lowest_amount_of_triangles = float('inf')
     for k, g in grp.items():
+        #print("NUMERO: " + k + str(len(g)))
         if len(g) < lowest_amount_of_triangles:
             lowest_amount_of_triangles = len(g)
-
     for k, g in grp.items():
         if len(g) == lowest_amount_of_triangles:
             # The groups pointing up
+            # En realidad tienen la misma cantidad de los que apuntan para el costado, pero los que apuntan para el costado le agregan uno mas en la parte de abajo, entonces los que apuntan para arriba son los mas chicos 
             grps.append((string_to_normal[k], g))
         elif len(g) == lowest_amount_of_triangles + 1:
             # the end of the turbines
@@ -368,12 +380,15 @@ def grouping(obj):
                     d = dist(g[i], g[j])
                     distance[i, j] = d
                     distance[j, i] = d
+            # este es el que agregan los que apuntan para los costados, lo agregan al grouping pero separados del resto
             outlier_index = np.min(distance, axis=0).argmax()
             grps.append((string_to_normal[k], [g[outlier_index]]))
             del g[outlier_index]
             grps.append((string_to_normal[k], g))
         else:
+            # estos serian los que faltan, que son los que apuntan para adelante y para atras
             number_of_groups = len(g) / lowest_amount_of_triangles
+            # number_of_groups va a ser igual a 3, pq lowest_amount_of_triangles va a ser los que se necesitan para el lado de arriba de una pala, y los que van para adelante (y para atras) son 3 lados de pala
             np_g = np.array(g)
             clf = KMeansConstrained(
                 n_clusters=int(number_of_groups),
@@ -551,15 +566,16 @@ if __name__ == '__main__':
     np.random.seed(seed)
     random.seed(seed)
     wt = Wireframe.from_stl_path('stl_gen/turbine.stl')
-    r = Rotation.from_euler("XYZ", [0, 0, 90], degrees=True).as_matrix()
+    # matriz de rotacion sobre su propio eje (intrinseca) en el eje Z
+#    r = Rotation.from_euler("XYZ", [0, 0, 90], degrees=True).as_matrix() 
 
-    r = TRotation().set_matrix(r, "XYZ")
-    t = Transform(np.expand_dims(np.array([-80, 0, 20]), axis=1), r,
-                  translate_before_rotate=False)
-    wt = wt.transform(t)
+#    r = TRotation().set_matrix(r, "XYZ")
+#    t = Transform(np.expand_dims(np.array([-80, 0, 20]), axis=1), r,
+#                  translate_before_rotate=False)
+#    wt = wt.transform(t)
     gps = grouping(wt)
-    fit = []
-    points = []
+#    fit = []
+#    points = []
     sections = []
     for i, (n, g) in enumerate(gps):
         sections.append(Section(g, n, get_distinct_color(i)))
@@ -567,9 +583,42 @@ if __name__ == '__main__':
     m = 10
     tc = 0
 
-    traj, normals = shortest_path(sections, multiplier=m, turn_cost=tc)
-    save_traj(f"p162", np.array(traj))
-    save_traj(f"n162", np.array(normals))
+    puntos = []
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+
+    for section in sections:
+        puntos.append(section.p1)
+        puntos.append(section.p2)
+
+
+    x,y,z = zip(*puntos)
+    ax.scatter(x,y,z)
+
+    # Recorrer todas las caras (triángulos) de la malla
+    for i, triangle in enumerate(wt.vertices):
+        # Extraer los vértices del triángulo
+        x = triangle[:, 0]
+        y = triangle[:, 1]
+        z = triangle[:, 2]
+
+        # Graficar los puntos del triángulo
+        ax.scatter(x, y, z, color='blue')
+
+        # Graficar las aristas del triángulo
+        for i in range(3):
+            ax.plot([x[i], x[(i+1) % 3]], [y[i], y[(i+1) % 3]], [z[i], z[(i+1) % 3]], color='black')
+
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+    ax.set_zlabel('Z')
+
+    plt.show()
+
+#    traj, normals = shortest_path(sections, multiplier=m, turn_cost=tc)
+#    save_traj(f"p162", np.array(traj))
+#    save_traj(f"n162", np.array(normals))
 
 #    test_order_GP = [4, 5, 0, 1, 17, 16, 9, 10, 8, 7, 21, 20, 6, 13, 14, 12, 11, 15, 18, 19, 3, 2]
 #    find_dist_of_order(test_order_GP, sections, multiplier=m, turn_cost=tc)

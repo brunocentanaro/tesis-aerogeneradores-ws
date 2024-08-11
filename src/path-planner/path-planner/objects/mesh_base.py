@@ -108,9 +108,7 @@ class Wireframe:
 
     def output(self):
         if len(self.vertices) > 1:
-            self.output_vertices()
             self.output_normals()
-            self.output_coverage()
 
     def output_vertices(self):
         print("\n --- Vertices --- ")
@@ -197,7 +195,8 @@ class Wireframe:
         return self.normals
 
     def compute_center(self):
-        centers = np.sum(self.vertices, axis=1) / 3
+        centers = np.mean(self.vertices, axis=1)
+
         # commented out because it is too slow
         # centers = []
         # for vertice in self.vertices:
