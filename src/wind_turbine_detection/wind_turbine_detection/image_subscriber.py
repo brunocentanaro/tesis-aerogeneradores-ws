@@ -37,29 +37,30 @@ class ImageSubscriber(Node):
         results = model.predict(image)
         img = results[0].plot()
         img2 = np.copy(img)
+        img3 = np.copy(img)
 
         # Convert to grayscale
         # cv2.cvtColor: Converts the image to a different color space. Here, it's converting from BGR (Blue, Green, Red) to grayscale.
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        cv2.imshow('Grayscale Image', gray)
+        #cv2.imshow('Grayscale Image', gray)
 
         # Apply Gaussian Blur
-        # blurred = cv2.GaussianBlur(
-        #     gray,
-        #     (9, 9), # size of the Gaussian kernel
-        #     2 # standard deviation in the X direction
-        # )
+        blurred = cv2.GaussianBlur(
+            gray,
+            (9, 9), # size of the Gaussian kernel
+            2 # standard deviation in the X direction
+        )
         # cv2.imshow('Blurred Image', blurred)
 
         # Apply Canny edge detector
         # cv2.Canny: Performs edge detection using the Canny algorithm. The thresholds determine how strong the edges need to be to be detected.
         edges = cv2.Canny(
-            gray, 
+            blurred, 
             10,#50, # lower threshold for the hysteresis procedure 
             150, # upper threshold for the hysteresis procedure 
             apertureSize=3 # size of the Sobel kernel used for finding image gradients. It can be 1, 3, 5, or 7.
         )
-        cv2.imshow('Edges', edges)
+        # cv2.imshow('Edges', edges)
 
         # Apply Hough Line Transform
         # cv2.HoughLinesP: Detects lines in the image using the probabilistic Hough Transform. The parameters control the accuracy and characteristics of the detected lines.
@@ -68,11 +69,16 @@ class ImageSubscriber(Node):
                     1, # Distance resolution in pixels
                     np.pi/180, # Angle resolution in radians
                     threshold=150, # Min number of votes/intersections for valid line
-                    minLineLength=10, # Min allowed length of line
+                    minLineLength=20, # Min allowed length of line
                     maxLineGap=10 # Max allowed gap between points on the same line to link them
                     )
 
-        error_margin = 5  # Ajusta el margen de error según sea necesario
+        for line in lines:
+            x1, y1, x2, y2 = line[0]
+            cv2.line(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
+        cv2.imshow('All detected lines', img)
+
+        error_margin = 15  # Ajusta el margen de error según sea necesario
         vertical_lines = []
 
         if lines is not None:
@@ -84,39 +90,50 @@ class ImageSubscriber(Node):
         # Dibujar las líneas verticales en la imagen
         for line in vertical_lines:
             x1, y1, x2, y2 = line[0]
-            cv2.line(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
+            cv2.line(img2, (x1, y1), (x2, y2), (0, 255, 0), 2) # LINEAS VERTICALES VERDE
 
         if vertical_lines:
-            heighest_point = heighest_point(vertical_lines)
-            if heighest_point:
+            highest = highest_point(vertical_lines)
+            if highest:
                 # Dibujar el punto más alto en la imagen
-                cv2.circle(img, heighest_point, 5, (0, 0, 255), -1) # First estimate of the hub
+                # First estimate of the hub
+                cv2.circle(img2, highest, 5, (0, 0, 255), -1) # PUNTO MAS ALTO ROJO
 
             distancia_max = 5
-            possible_blades = close_lines(lines, heighest_point, distancia_max)
+            possible_blades = close_lines(lines, highest, distancia_max)
             # Dibujar posibles aspas
             for line in possible_blades:
                 x1, y1, x2, y2 = line[0]
-                cv2.line(img, (x1, y1), (x2, y2), (255, 0, 0), 2)
+                cv2.line(img2, (x1, y1), (x2, y2), (255, 0, 0), 2) # POSIBLES ASPAS AZUL 
+
+        cv2.imshow('Line recognition', img2)
 
         # Apply Hough Circle Transform
-        circles = cv2.HoughCircles(
-            gray,
-            cv2.HOUGH_GRADIENT, # The detection method
-            dp=1.2, # The inverse ratio of the accumulator resolution to the image resolution
-            minDist=50, # The minimum distance between the centers of detected circles
-            param1=150, # The higher threshold of the two passed to the Canny edge detector
-            param2=30, # The accumulator threshold for the circle centers at the detection stage. Lower values mean more false circles may be detected.
-            minRadius=15, # Minimum circle radius
-            maxRadius=30 # Maximum circle radius
-        )
-        if circles is not None:
-            circles = np.round(circles[0, :]).astype("int")
-            for (x, y, r) in circles:
-                cv2.circle(img, (x, y), r, (0, 0, 255), 2)
+        # circles = cv2.HoughCircles(
+        #     gray,
+        #     cv2.HOUGH_GRADIENT, # The detection method
+        #     dp=1.2, # The inverse ratio of the accumulator resolution to the image resolution
+        #     minDist=50, # The minimum distance between the centers of detected circles
+        #     param1=150, # The higher threshold of the two passed to the Canny edge detector
+        #     param2=30, # The accumulator threshold for the circle centers at the detection stage. Lower values mean more false circles may be detected.
+        #     minRadius=15, # Minimum circle radius
+        #     maxRadius=30 # Maximum circle radius
+        # )
+        # if circles is not None:
+        #     circles = np.round(circles[0, :]).astype("int")
+        #     for (x, y, r) in circles:
+        #         cv2.circle(img, (x, y), r, (0, 0, 255), 2)
 
         # Display the result
-        cv2.imshow('Detected Frame', img)
+
+        # Encontrar contornos
+        contours, hierarchy = cv2.findContours(edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+        # Dibujar todos los contornos
+        cv2.drawContours(img3, contours, -1, (0, 255, 0), 2)
+
+        # Mostrar la imagen con contornos
+        cv2.imshow('Contours', img3)
 
         # lines2 = cv2.HoughLines(
         #                     edges, 
@@ -146,23 +163,23 @@ def is_vertical(x1, y1, x2, y2, error_margin):
     return abs(x1 - x2) <= error_margin
 
 # Encuentra el punto más alto en una lista de líneas verticales
-def heighest_point(vertical_lines):
-    heighest_point = None
+# Es al reves por el sistema de referencia
+def highest_point(vertical_lines):
+    highest = None
     for line in vertical_lines:
         x1, y1, x2, y2 = line[0]
-        if heighest_point is None or y1 > heighest_point[1]:
-            heighest_point = (x1, y1)
-        if y2 > heighest_point[1]:
-            heighest_point = (x2, y2)
-    
-    return heighest_point
+        if highest is None or y1 < highest[1]:
+            highest = (x1, y1)
+        if y2 < highest[1]:
+            highest = (x2, y2)
+    return highest
 
 # Calcula la distancia euclidiana entre dos puntos p1 y p2
 def distance(p1, p2):
     return np.linalg.norm(np.array(p1) - np.array(p2))
 
-# Encuentra las líneas que tienen uno de sus extremos a menos de una distancia dada de heighest_point
-def close_lines(lines, heighest_point, distance_max):
+# Encuentra las líneas que tienen uno de sus extremos a menos de una distancia dada de highest_point
+def close_lines(lines, highest_point, distance_max):
     lines_found = []
     
     for line in lines:
@@ -170,7 +187,7 @@ def close_lines(lines, heighest_point, distance_max):
         punto1 = (x1, y1)
         punto2 = (x2, y2)
         
-        if distance(punto1, heighest_point) <= distance_max or distance(punto2, heighest_point) <= distance_max:
+        if distance(punto1, highest_point) <= distance_max or distance(punto2, highest_point) <= distance_max:
             lines_found.append(line)
     
     return lines_found
