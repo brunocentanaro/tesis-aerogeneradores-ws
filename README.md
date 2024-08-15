@@ -5,7 +5,7 @@
 - Ubuntu 22.04
 - [ROS2 Humble](https://docs.ros.org/en/humble/)
 - [Gazebo Garden](https://gazebosim.org/docs/garden/install)
-- [PX4](https://gazebosim.org/docs/garden/install)
+- [PX4](https://docs.px4.io/main/en/ros2/user_guide#installation-setup)
 
 ## Instrucciones
 
