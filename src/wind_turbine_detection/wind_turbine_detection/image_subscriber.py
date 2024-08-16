@@ -7,6 +7,7 @@ import numpy as np
 from ultralytics import YOLO
 import os
 from ament_index_python.packages import get_package_share_directory
+from itertools import combinations
 
 package_share_directory = get_package_share_directory('wind_turbine_detection')
 model_path = os.path.join(package_share_directory, 'resource', 'yolov8n.pt')
@@ -38,6 +39,7 @@ class ImageSubscriber(Node):
         img = results[0].plot()
         img2 = np.copy(img)
         img3 = np.copy(img)
+        img4 = np.copy(img)
 
         # Convert to grayscale
         # cv2.cvtColor: Converts the image to a different color space. Here, it's converting from BGR (Blue, Green, Red) to grayscale.
@@ -56,8 +58,8 @@ class ImageSubscriber(Node):
         # cv2.Canny: Performs edge detection using the Canny algorithm. The thresholds determine how strong the edges need to be to be detected.
         edges = cv2.Canny(
             blurred, 
-            10,#50, # lower threshold for the hysteresis procedure 
-            150, # upper threshold for the hysteresis procedure 
+            threshold1=10,#50, # lower threshold for the hysteresis procedure 
+            threshold2=150, # upper threshold for the hysteresis procedure 
             apertureSize=3 # size of the Sobel kernel used for finding image gradients. It can be 1, 3, 5, or 7.
         )
         # cv2.imshow('Edges', edges)
@@ -66,17 +68,34 @@ class ImageSubscriber(Node):
         # cv2.HoughLinesP: Detects lines in the image using the probabilistic Hough Transform. The parameters control the accuracy and characteristics of the detected lines.
         lines = cv2.HoughLinesP(
                     edges,
-                    1, # Distance resolution in pixels
-                    np.pi/180, # Angle resolution in radians
-                    threshold=150, # Min number of votes/intersections for valid line
-                    minLineLength=20, # Min allowed length of line
-                    maxLineGap=10 # Max allowed gap between points on the same line to link them
+                    rho=1, # Distance resolution in pixels
+                    theta=np.pi/180, # Angle resolution in radians
+                    threshold=50, # Min number of votes/intersections for valid line
+                    minLineLength=40, # Min allowed length of line
+                    maxLineGap=20 # Max allowed gap between points on the same line to link them
                     )
 
         for line in lines:
             x1, y1, x2, y2 = line[0]
             cv2.line(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
         cv2.imshow('All detected lines', img)
+
+
+        # Convert lines to a list of tuples ((x1, y1), (x2, y2))
+        converted_lines = [((x1, y1), (x2, y2)) for [[x1, y1, x2, y2]] in lines]
+
+        # Find configurations of lines that form a 'Y' inverted shape
+        y_inverted = forms_y_inverted(converted_lines)
+
+        # Draw the detected lines on the image
+        if y_inverted:
+            for line in y_inverted:
+                (x1, y1), (x2, y2) = line
+                cv2.line(img4, (x1, y1), (x2, y2), (0, 255, 0), 2)
+            cv2.imshow('Y Inverted Shape', img4)
+        else:
+            print("No 'Y' inverted shape found")
+
 
         error_margin = 15  # Ajusta el margen de error según sea necesario
         vertical_lines = []
@@ -192,9 +211,51 @@ def close_lines(lines, highest_point, distance_max):
     
     return lines_found
 
-# Function to calculate the angle of a line
+# Function to calculate the angle of a line in the range [0, 360) degrees
 def calculate_angle(x1, y1, x2, y2):
-    return np.degrees(np.arctan2(y2 - y1, x2 - x1))
+    angle = np.arctan2(y2 - y1, x2 - x1) * 180 / np.pi
+    return angle % 360  # Convert to [0, 360) range
+
+# Calculate the angle between two lines.
+def angle_between_lines(line1, line2):
+    angle1 = calculate_angle(*line1[0], *line1[1])
+    angle2 = calculate_angle(*line2[0], *line2[1])
+    diff = abs(angle1 - angle2) % 360
+    return min(diff, 360 - diff)  # Angle between 0 and 180 degrees
+
+# Check if the angle is approximately 120 degrees
+def is_approx_120_degrees(angle):
+    return np.isclose(angle, 120, atol=45)
+
+# Find configurations of three lines forming a 'Y' inverted shape
+def forms_y_inverted(lines):
+    for comb in combinations(lines, 3):
+        line1, line2, line3 = comb
+        angle12 = angle_between_lines(line1, line2)
+        angle23 = angle_between_lines(line2, line3)
+        angle31 = angle_between_lines(line3, line1)
+        
+        # print('is_approx_120_degrees 1:', is_approx_120_degrees(angle12))
+        # print('is_approx_120_degrees 2:', is_approx_120_degrees(angle23))
+        # print('is_approx_120_degrees 3:', is_approx_120_degrees(angle31))
+
+        if is_approx_120_degrees(angle12) and is_approx_120_degrees(angle23) and is_approx_120_degrees(angle31):
+            return comb
+    return None
+
+# # Function to check if the angle difference is approximately 120 degrees
+# def is_approx_120_degrees(angle1, angle2):
+#     diff = abs(angle1 - angle2) % 360
+#     return np.isclose(diff, 120, atol=10) or np.isclose(diff, 240, atol=10)
+
+# Function to check if three angles form a 120-degree configuration
+def forms_120_degrees(angle1, angle2, angle3):
+    # Check all possible combinations of differences
+    return (
+        is_approx_120_degrees(angle1, angle2) and
+        is_approx_120_degrees(angle2, angle3) and
+        is_approx_120_degrees(angle1, angle3)
+    )
 
 # Function to sort lines by angle
 def sort_lines_by_angle(lines):
