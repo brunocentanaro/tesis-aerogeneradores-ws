@@ -86,9 +86,24 @@ class ImageSubscriber(Node):
 
         # Draw the detected lines on the image
         if y_inverted_found:
+            intersections = []
+
+            # Encuentra las intersecciones
+            for i in range(len(y_inverted_found)):
+                for j in range(i + 1, len(y_inverted_found)):
+                    intersection = find_line_intersection(y_inverted_found[i], y_inverted_found[j])
+                    if intersection:
+                        intersections.append(intersection)
+
+            # Dibuja las líneas
             for line in y_inverted_found:
                 x1, y1, x2, y2 = line[0]
-                cv2.line(img4, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                cv2.line(img4, (x1, y1), (x2, y2), (0, 255, 0), 2) # LINEAS Y INVERTIDA VERDE
+
+            # Dibuja los puntos de intersección
+            for (x, y) in intersections:
+                cv2.circle(img4, (x, y), 5, (0, 0, 255), -1) # PUNTOS INTERSECCION ROJO
+
             cv2.imshow('Y Inverted Shape', img4)
         else:
             print("No 'Y' inverted shape found")
@@ -271,7 +286,26 @@ def y_inverted(lines):
                     highest_y = y_max_vertical
     return highest
 
+# Encuentra la intersección entre dos líneas representadas por (x1, y1, x2, y2)
+def find_line_intersection(line1, line2):
+    x1, y1, x2, y2 = line1[0]
+    x_1, y_1, x_2, y_2 = line2[0]
 
+    xdiff = (x1 - x2, x_1 - x_2)
+    ydiff = (y1 - y2, y_1 - y_2)
+
+    def det(a, b):
+        return a[0] * b[1] - a[1] * b[0]
+
+    div = det(xdiff, ydiff)
+    if div == 0:
+        return None  # Las líneas son paralelas o coincidentes
+
+    d = (det((x1, y1), (x2, y2)), det((x_1, y_1), (x_2, y_2)))
+    x = det(d, xdiff) / div
+    y = det(d, ydiff) / div
+
+    return (int(x), int(y))
 
 def main(args=None):
     rclpy.init(args=args)
