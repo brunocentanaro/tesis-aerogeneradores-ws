@@ -1,3 +1,4 @@
+import math
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image
@@ -80,17 +81,13 @@ class ImageSubscriber(Node):
             cv2.line(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
         cv2.imshow('All detected lines', img)
 
-
-        # Convert lines to a list of tuples ((x1, y1), (x2, y2))
-        converted_lines = [((x1, y1), (x2, y2)) for [[x1, y1, x2, y2]] in lines]
-
         # Find configurations of lines that form a 'Y' inverted shape
-        y_inverted = forms_y_inverted(converted_lines)
+        y_inverted_found = y_inverted(lines)
 
         # Draw the detected lines on the image
-        if y_inverted:
-            for line in y_inverted:
-                (x1, y1), (x2, y2) = line
+        if y_inverted_found:
+            for line in y_inverted_found:
+                x1, y1, x2, y2 = line[0]
                 cv2.line(img4, (x1, y1), (x2, y2), (0, 255, 0), 2)
             cv2.imshow('Y Inverted Shape', img4)
         else:
@@ -211,78 +208,70 @@ def close_lines(lines, highest_point, distance_max):
     
     return lines_found
 
-# Function to calculate the angle of a line in the range [0, 360) degrees
-def calculate_angle(x1, y1, x2, y2):
-    angle = np.arctan2(y2 - y1, x2 - x1) * 180 / np.pi
-    return angle % 360  # Convert to [0, 360) range
+def slope(line):
+    x1, y1, x2, y2 = line[0]
+    if x2 == x1:
+        return float('inf')
+    else:
+        return (y2 - y1) / (x2 - x1)
 
-# Calculate the angle between two lines.
-def angle_between_lines(line1, line2):
-    angle1 = calculate_angle(*line1[0], *line1[1])
-    angle2 = calculate_angle(*line2[0], *line2[1])
-    diff = abs(angle1 - angle2) % 360
-    return min(diff, 360 - diff)  # Angle between 0 and 180 degrees
+def calculate_angle_between_lines(m1, m2):
+    if m1 == float('inf') or m2 == float('inf'):
+        # Caso donde una de las líneas es vertical
+        if m1 == float('inf') and m2 == float('inf'):
+            return 0  # Las dos líneas son paralelas y verticales, ángulo es 0
+        elif m1 == float('inf'):
+            # m1 es vertical, calcular ángulo con m2
+            angle = math.degrees(math.atan(abs(m2)))
+            return 90 - angle  # Ángulo con respecto a una línea horizontal
+        else:
+            # m2 es vertical, calcular ángulo con m1
+            angle = math.degrees(math.atan(abs(m1)))
+            return 90 - angle  # Ángulo con respecto a una línea horizontal
+    else:
+        # Caso general donde ninguna línea es vertical
+        tan_theta = abs((m2 - m1) / (1 + m1 * m2))
+        angle = math.degrees(math.atan(tan_theta))  
+        return angle
 
-# Check if the angle is approximately 120 degrees
-def is_approx_120_degrees(angle):
-    return np.isclose(angle, 120, atol=45)
 
-# Find configurations of three lines forming a 'Y' inverted shape
-def forms_y_inverted(lines):
+def are_lines_about_120_degrees(m1, m2, margin_of_error=10):
+    # Calcula el ángulo entre las dos líneas
+    angle = calculate_angle_between_lines(m1, m2)
+    # print('angle', angle)
+    
+    # Verifica si el ángulo es aproximadamente 120 grados
+    return abs(angle - 120) <= margin_of_error or abs(angle - 60) <= margin_of_error
+
+# Devuelve 3 lineas con aprox 120 grados entre ellas
+# Se queda con la terna con la linea vertical mas arriba que haya
+def y_inverted(lines):
+    highest = None
+    highest_y = float('inf')
+
     for comb in combinations(lines, 3):
         line1, line2, line3 = comb
-        angle12 = angle_between_lines(line1, line2)
-        angle23 = angle_between_lines(line2, line3)
-        angle31 = angle_between_lines(line3, line1)
-        
-        # print('is_approx_120_degrees 1:', is_approx_120_degrees(angle12))
-        # print('is_approx_120_degrees 2:', is_approx_120_degrees(angle23))
-        # print('is_approx_120_degrees 3:', is_approx_120_degrees(angle31))
 
-        if is_approx_120_degrees(angle12) and is_approx_120_degrees(angle23) and is_approx_120_degrees(angle31):
-            return comb
-    return None
+        angle12 = are_lines_about_120_degrees(slope(line1), slope(line2))
+        angle23 = are_lines_about_120_degrees(slope(line2), slope(line3))
+        angle31 = are_lines_about_120_degrees(slope(line3), slope(line1))
 
-# # Function to check if the angle difference is approximately 120 degrees
-# def is_approx_120_degrees(angle1, angle2):
-#     diff = abs(angle1 - angle2) % 360
-#     return np.isclose(diff, 120, atol=10) or np.isclose(diff, 240, atol=10)
+        if angle12 and angle23 and angle31:
+            vertical_line = None
+            for line in (line1, line2, line3):
+                if slope(line) == float('inf'):
+                    vertical_line = line
+                    break
 
-# Function to check if three angles form a 120-degree configuration
-def forms_120_degrees(angle1, angle2, angle3):
-    # Check all possible combinations of differences
-    return (
-        is_approx_120_degrees(angle1, angle2) and
-        is_approx_120_degrees(angle2, angle3) and
-        is_approx_120_degrees(angle1, angle3)
-    )
+            if vertical_line is not None:
+                x1, y1, x2, y2 = vertical_line[0]
+                y_max_vertical = min(y1, y2)
+                if y_max_vertical < highest_y:
+                    highest = (line1, line2, line3)
+                    highest_y = y_max_vertical
+    return highest
 
-# Function to sort lines by angle
-def sort_lines_by_angle(lines):
-    lines_with_angles = [(line, calculate_angle(line[0][0], line[0][1], line[0][2], line[0][3])) for line in lines]
-    lines_with_angles.sort(key=lambda x: x[1])
-    sorted_lines = [line for line, angle in lines_with_angles]
-    return sorted_lines
 
-# Function to group lines by similar angles
-def group_lines_by_angle(lines, angle_threshold):
-    sorted_lines = sort_lines_by_angle(lines)
-    grouped_lines = []
-    current_group = [sorted_lines[0]]
-
-    for i in range(1, len(sorted_lines)):
-        _, angle1 = calculate_angle(*sorted_lines[i-1][0])
-        _, angle2 = calculate_angle(*sorted_lines[i][0])
-        if abs(angle2 - angle1) < angle_threshold:
-            current_group.append(sorted_lines[i])
-        else:
-            grouped_lines.append(current_group)
-            current_group = [sorted_lines[i]]
-
-    if current_group:
-        grouped_lines.append(current_group)
-
-    return grouped_lines
 
 def main(args=None):
     rclpy.init(args=args)
