@@ -32,6 +32,7 @@ class Section:
             self.p1 = midpoint(self.points[0], self.points[1])  # lowest point (no need to sort)
             self.p2 = midpoint(self.points[-1], self.points[-2])  # highest point (need to reorder list)
         else:
+            print("CREANDO SECTIONS", self.points[0])
             self.p1 = self.points[0]
             self.p2 = self.points[0]
         self.length = dist(self.p1, self.p2)
@@ -89,7 +90,15 @@ def dist(p_to, p_from=np.array([0, 0, 0])):
     v = p_to - p_from
     return np.linalg.norm(v)
 
-
+# current es el indice actual
+# currentDistance es la distancia total recorrida hasta el momento
+# visited es un array donde marco que puntos ya visite
+# node_order es el array de los indices de los puntos en el orden en que los recorre
+# best_dist es 
+# edges es el array de costos de ir de un punto a otro
+# points_to_sections es el diccionario que tiene como key el punto de la m_section stringificado y como valor la section a la que pertenece
+# point_to_index es el diccionario que tiene como key el punto de la m_section stringificado y como valor el indice en points_str
+# points_str es el array de punto de la m_section stringificados
 def move_to(current: int, currentDistance: float, visited: list, node_order: list, global_best_dist: float, edges,
             points_to_sections, point_to_index, points):
     # Set visited:
@@ -212,6 +221,7 @@ def shortest_path(sections: List[Section], multiplier=10, turn_cost=0, test_all_
     normals = []
     points_str = []  # We dont want to convert np arrays on the fly so do it once here
     for s in m_sections:
+        print("hola")
         n = s.normal
         points_to_sections[s.p1_str] = s
         points_to_sections[s.p2_str] = s
@@ -250,6 +260,7 @@ def shortest_path(sections: List[Section], multiplier=10, turn_cost=0, test_all_
             if np.all(n1 + n2 == np.zeros(3)):
                 d = -1
             else:
+                # le agrega un costo a las distancias si tiene que cambiar normal (lado de la/s pala/s)
                 d = dist(p, p2) + (turn_cost if np.all(n1 != n2) else 0)
             edges[i, j] = d
             edges[j, i] = d
@@ -260,7 +271,7 @@ def shortest_path(sections: List[Section], multiplier=10, turn_cost=0, test_all_
     for p in points:
         d = dist(p, start_node)
         start_node_cost.append(d)
-    # array de los indices de las start_node_cost (que es igual al de los puntos) que los ordena de menor a mayor
+    # array de los indices de los costos de los puntos al start_node (que es igual al de los indices de los puntos) que los ordena de menor a mayor
     shortest_path_start = np.argsort(start_node_cost)
     for start_index in shortest_path_start:
         print(f"new_start = {start_index}")
@@ -270,10 +281,19 @@ def shortest_path(sections: List[Section], multiplier=10, turn_cost=0, test_all_
 
         visited = np.zeros((len(points))).tolist()
         point_to_index = {}
+        # points_str eran los puntos de la m_section stringificados
         for i, p in enumerate(points_str):
             point_to_index[p] = i
         # unvisited[current] = currentDistance
         m1 = time.perf_counter()
+        # current es el indice actual
+        # currentDistance es la distancia del start_node al indice actual
+        # visited es un array donde marco que puntos ya visite
+        # best_dist es la 
+        # edges es el array de costos de ir de un punto a otro
+        # points_to_sections es el diccionario que tiene como key el punto de la m_section stringificado y como valor la section a la que pertenece
+        # point_to_index es el diccionario que tiene como key el punto de la m_section stringificado y como valor el indice en points_str
+        # points_str es el array de punto de la m_section stringificados
         found_solution, resulting_dist, resulting_order = move_to(current, currentDistance, visited,
                                                                   [], best_dist,
                                                                   edges, points_to_sections,
@@ -336,6 +356,7 @@ def get_full_order(m, test_order, dist, points_str, points_to_sections, start_no
         p_str = points_str[index]
         section = points_to_sections[p_str]
         c = section.color
+        # agarra todos los puntos de la section, no solo p1 y p2. por eso queda el zigzag. los agarra en orden, si p_str es p1, agarra p1 px py pz p2, si p_str es p2, agarra p2 pz py px p1
         ps = section.get_ordered_points(p_str)
         resulting_points.append((ps, c))
         skip = not section.is_one_point_section
@@ -470,7 +491,7 @@ def plot_data_color_sections(sections, title, save=False, show=True, dpi=600):
     ax.set_facecolor('white')
     for d_grp in sections:
         d = d_grp.points.transpose()
-        ax.plot(d[0], d[1], d[2], label='Original Global Path', lw=2,
+        ax.plot(d[0], d[1], d[2], lw=1,
                 c=(np.random.uniform(0.1, 0.9), np.random.uniform(0.1, 0.9), np.random.uniform(0.1, 0.9)))
     ax.legend()
     # plt.xlim(-50, -110)
@@ -579,7 +600,7 @@ if __name__ == '__main__':
     sections = []
     for i, (n, g) in enumerate(gps):
         sections.append(Section(g, n, get_distinct_color(i)))
-#    plot_data_color_sections(sections, "te", True, False)
+    plot_data_color_sections(sections, "te", True, False)
     m = 10
     tc = 0
 
@@ -616,9 +637,9 @@ if __name__ == '__main__':
 
     plt.show()
 
-#    traj, normals = shortest_path(sections, multiplier=m, turn_cost=tc)
-#    save_traj(f"p162", np.array(traj))
-#    save_traj(f"n162", np.array(normals))
+    traj, normals = shortest_path(sections, multiplier=m, turn_cost=tc)
+    save_traj(f"p162", np.array(traj))
+    save_traj(f"n162", np.array(normals))
 
 #    test_order_GP = [4, 5, 0, 1, 17, 16, 9, 10, 8, 7, 21, 20, 6, 13, 14, 12, 11, 15, 18, 19, 3, 2]
 #    find_dist_of_order(test_order_GP, sections, multiplier=m, turn_cost=tc)
