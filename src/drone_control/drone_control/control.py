@@ -43,6 +43,7 @@ class OffboardControl(Node):
         self.offboard_setpoint_counter = 0
         self.previous_setpoint = [0.0, 0.0, 0.0]
         self.current_setpoint = [0.0, 0.0, 0.0]
+        self.currentSetpointEndSpeed = [0.0, 0.0, 0.0]
         self.currentYaw = 0.0
         self.previousYaw = 0.0
         self.current_manual_control_setpoint = [0.0, 0.0, 0.5, 0.0]
@@ -110,6 +111,7 @@ class OffboardControl(Node):
             self.advanceToNextWaypointCallback,
             10
         )
+        self.maxSpeed = 1/9
 
     def advanceToNextWaypointCallback(self, msg):
         self.processing_waypoint = False
@@ -145,10 +147,28 @@ class OffboardControl(Node):
 
         if not self.processing_waypoint and self.wayPointsStack:
             self.processing_waypoint = True
-            x,y,z,yaw = self.wayPointsStack.pop(0)
-            self.setNewSetpoint(x, y, z, yaw)
-            self.get_logger().info('New waypoint set: %s' % str(self.current_setpoint))
+            x, y, z, yaw = self.wayPointsStack.pop(0)
+
+            if self.wayPointsStack:
+                xNext, yNext, zNext, yawNext = self.wayPointsStack[0]
+            else:
+                xNext, yNext, zNext, yawNext = (0.0, 0.0, 0.0, 0.0)
+
+            maxDiff = max(abs(xNext), abs(yNext), abs(zNext))
+            multiplier = self.maxSpeed / maxDiff if maxDiff != 0 else 0.0
+
+            newPossibleSpeed = [xNext * multiplier, yNext * multiplier, zNext * multiplier]
+
+            hasChangeOfDirection = (newPossibleSpeed[0] * self.currentSetpointEndSpeed[0] < 0 or
+                newPossibleSpeed[1] * self.currentSetpointEndSpeed[1] < 0 or
+                newPossibleSpeed[2] * self.currentSetpointEndSpeed[2] < 0)
             
+            if hasChangeOfDirection:
+                self.currentSetpointEndSpeed = [0.0, 0.0, 0.0]
+            else:
+                self.currentSetpointEndSpeed = newPossibleSpeed
+
+            self.setNewSetpoint(x, y, z, yaw)
 
     def inspectWindTurbine(self, msg):
         self.get_logger().info('Received: "%s"' % msg.data)
@@ -167,7 +187,7 @@ class OffboardControl(Node):
 
     def addIntermediateWaypoints(self, x, y, z, yaw):
         maxDistance = max(abs(x), abs(y), abs(z))
-        distancePerWaypoint = 1
+        distancePerWaypoint = 0.3
         numWaypoints = int(maxDistance / distancePerWaypoint)
         xStep = x / numWaypoints
         yStep = y / numWaypoints
@@ -204,7 +224,7 @@ class OffboardControl(Node):
         self.current_setpoint = [
             self.previous_setpoint[0] + x,
             self.previous_setpoint[1] + y,
-            self.previous_setpoint[2] +z
+            self.previous_setpoint[2] + z
         ]
         self.currentYaw = yaw
 
@@ -251,12 +271,7 @@ class OffboardControl(Node):
                 self.get_logger().info('Ticks near this waypoint: %s' % self.nearTicker)
 
         movement_time = max_distance / self.desired_speed
-        # msg.velocity = [
-        #     self.desiredVelocityX,
-        #     self.desiredVelocityY,
-        #     self.desiredVelocityZ
-        # ]
-        msg.acceleration = [0.2, 0.2, 0.2]
+        msg.velocity = self.currentSetpointEndSpeed
 
         msg.yaw = self.currentYaw
         msg.timestamp = self.get_clock().now().nanoseconds // 1000
