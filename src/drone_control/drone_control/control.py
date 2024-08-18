@@ -126,8 +126,13 @@ class OffboardControl(Node):
         self.waypointReachedPublisher = self.create_publisher(String, 'waypoint_reached', 10)
 
     def startTakeoffProcedure(self, msg):
-        self.wayPointsStack.append((0.0, 0.0, -50.0,0.0, 'takeoff'))
-        self.shouldArmAndTakeoff = True
+        try:
+            takeoffHeight = float(msg.data)
+            self.wayPointsStack.append((0.0, 0.0, -takeoffHeight, 0.0, 'takeoff'))
+            self.shouldArmAndTakeoff = True
+        except ValueError:
+            self.get_logger().error('Invalid waypoint format. Expected format: "height"')
+            return
 
     def advanceToNextWaypointCallback(self, msg):
         self.onWaypointReached()

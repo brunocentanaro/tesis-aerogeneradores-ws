@@ -3,17 +3,15 @@ from rclpy.node import Node
 from std_msgs.msg import String
 from abc import ABC, abstractmethod
 from enum import Enum
-import threading
-import time
 
 windTurbineTypeAndLocation = [
     {
-        "height": 50,
+        "height": 89,
         "coordinates": {
             "latitude": -34.627257,
             "longitude": -54.957857
         },
-        "bladeLength": 20
+        "bladeLength": 55
     }
 ]
 
@@ -34,12 +32,7 @@ class InspectionState(ABC, Node):
         super().__init__(node_name)
         self.name = name
         self.state_machine = state_machine
-        self.publisher = self.create_publisher(String, 'state_topic', 10)
         self.subscriber = self.create_subscription(String, 'waypoint_reached', self.waypoint_reached_callback, 10)
-
-    @abstractmethod
-    def is_finished(self):
-        pass
 
     @abstractmethod
     def next_state(self):
@@ -72,9 +65,6 @@ class IdleState(InspectionState):
     def startAfter20Seconds(self):
         self.advance_to_next_state()
 
-    def is_finished(self):
-        return True
-
     def next_state(self):
         return TakeoffState(self.state_machine)
 
@@ -85,11 +75,9 @@ class TakeoffState(InspectionState):
     def __init__(self, state_machine):
         super().__init__('takeoff_state', WindTurbineInspectionStage.TAKEOFF, state_machine)
 
+        windTurbineHeight = windTurbineTypeAndLocation[self.shared_state['mission_param']]['height']
         self.startTakeoffPublisher = self.create_publisher(String, 'start_takeoff_procedure', 10)
-        self.startTakeoffPublisher.publish(String(data="start"))
-
-    def is_finished(self):
-        return True
+        self.startTakeoffPublisher.publish(String(data=f"{windTurbineHeight}"))
 
     def next_state(self):
         return ApproachState(self.state_machine)
@@ -109,15 +97,11 @@ class ApproachState(InspectionState):
         height = windTurbineTypeAndLocation[mission_param]['height']
         self.publish_waypoint(f"{newCoord['latitude']},{newCoord['longitude']},{height}") 
 
-    
     def publish_waypoint(self, waypoint):
         msg = String()
         msg.data = waypoint
         self.publisher.publish(msg)
         self.get_logger().info('Publishing: "%s"' % msg.data)
-
-    def is_finished(self):
-        return True
 
     def next_state(self):
         return OrthogonalAlignmentState(self.state_machine)
@@ -131,9 +115,6 @@ class OrthogonalAlignmentState(InspectionState):
     def __init__(self, state_machine):
         super().__init__('orthogonal_alignment_state', WindTurbineInspectionStage.ORTHOGONAL_ALIGNMENT, state_machine)
         self.advance_to_next_state()
-
-    def is_finished(self):
-        return True
 
     def next_state(self):
         return FrontInspectionState(self.state_machine)
@@ -150,9 +131,6 @@ class FrontInspectionState(InspectionState):
         self.startInspectionPublisher = self.create_publisher(String, 'inspect_wind_turbine', 10)
         self.startInspectionPublisher.publish(String(data=f"{windTurbineBladeLength}"))
 
-    def is_finished(self):
-        return True
-
     def next_state(self):
         return BackInspectionState(self.state_machine)
 
@@ -163,9 +141,6 @@ class BackInspectionState(InspectionState):
     def __init__(self, state_machine):
         super().__init__('back_inspection_state', WindTurbineInspectionStage.BACK_INSPECTION, state_machine)
 
-    def is_finished(self):
-        return True
-
     def next_state(self):
         return ReturnHomeState(self.state_machine)
 
@@ -175,9 +150,6 @@ class BackInspectionState(InspectionState):
 class ReturnHomeState(InspectionState):
     def __init__(self, state_machine):
         super().__init__('return_home_state', WindTurbineInspectionStage.RETURN_HOME, state_machine)
-
-    def is_finished(self):
-        return True
 
     def next_state(self):
         return IdleState()
@@ -202,7 +174,6 @@ class WindTurbineInspectionStateMachine(Node):
     def run(self):
         rclpy.spin(self)
 
-# Inicialización de ROS 2
 def main(args=None):
     rclpy.init(args=args)
 
