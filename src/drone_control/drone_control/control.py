@@ -5,6 +5,7 @@ from std_msgs.msg import String
 from rclpy.qos import QoSProfile, QoSDurabilityPolicy, QoSReliabilityPolicy
 import math
 
+EMPTY_MESSAGE = ""
 
 def distance_and_bearing(lat1, lon1, lat2, lon2):
     # Convertir grados a radianes
@@ -93,7 +94,7 @@ class OffboardControl(Node):
             qos_profile
         )
 
-        self.wayPointsStack = [(0.0, 0.0, -30.0,0.0)]
+        self.wayPointsStack = []
         self.processing_waypoint = False
         self.localPosition = None
 
@@ -112,9 +113,24 @@ class OffboardControl(Node):
             10
         )
         self.maxSpeed = 1/9
+        self.shouldArmAndTakeoff = False
+        self.inTakeoffProcedure = False
+
+        self.startTakeoffProcedureSubscription = self.create_subscription(
+            String,
+            'start_takeoff_procedure',
+            self.startTakeoffProcedure,
+            10
+        )
+
+        self.waypointReachedPublisher = self.create_publisher(String, 'waypoint_reached', 10)
+
+    def startTakeoffProcedure(self, msg):
+        self.wayPointsStack.append((0.0, 0.0, -50.0,0.0, 'takeoff'))
+        self.shouldArmAndTakeoff = True
 
     def advanceToNextWaypointCallback(self, msg):
-        self.processing_waypoint = False
+        self.onWaypointReached()
 
     def localPositionCallback(self, msg):
         self.localPosition = [msg.x, msg.y, msg.z]
@@ -130,27 +146,25 @@ class OffboardControl(Node):
         try:
             latitude, longitude, altitude = map(float, msg.data.split(','))
             x,y,z,yaw = self.process_new_waypoint(latitude, longitude, altitude)
-            self.wayPointsStack.append((x,y,z,yaw))
+            self.wayPointsStack.append((x,y,z,yaw, f"{latitude},{longitude},{altitude}"))
         except ValueError:
             self.get_logger().error('Invalid waypoint format. Expected format: "latitude,longitude,altitude"')
 
     def timer_callback(self):
-        if self.offboard_setpoint_counter == 200:
+        if self.shouldArmAndTakeoff:
             self.publish_vehicle_command(VehicleCommand.VEHICLE_CMD_DO_SET_MODE, 1.0, 6.0)
             self.arm()
+            self.shouldArmAndTakeoff = False
 
         self.publish_offboard_control_mode()
         self.publish_trajectory_setpoint()
 
-        if self.offboard_setpoint_counter < 201:
-            self.offboard_setpoint_counter += 1
-
         if not self.processing_waypoint and self.wayPointsStack:
             self.processing_waypoint = True
-            x, y, z, yaw = self.wayPointsStack.pop(0)
+            x, y, z, yaw, message = self.wayPointsStack.pop(0)
 
             if self.wayPointsStack:
-                xNext, yNext, zNext, yawNext = self.wayPointsStack[0]
+                xNext, yNext, zNext, _, _ = self.wayPointsStack[0]
             else:
                 xNext, yNext, zNext, yawNext = (0.0, 0.0, 0.0, 0.0)
 
@@ -168,7 +182,7 @@ class OffboardControl(Node):
             else:
                 self.currentSetpointEndSpeed = newPossibleSpeed
 
-            self.setNewSetpoint(x, y, z, yaw)
+            self.setNewSetpoint(x, y, z, yaw, message)
 
     def inspectWindTurbine(self, msg):
         self.get_logger().info('Received: "%s"' % msg.data)
@@ -194,7 +208,7 @@ class OffboardControl(Node):
         zStep = z / numWaypoints
         yawStep = yaw / numWaypoints
         for i in range(numWaypoints):
-            self.wayPointsStack.append((xStep, yStep, zStep, yawStep))
+            self.wayPointsStack.append((xStep, yStep, zStep, yawStep, EMPTY_MESSAGE))
 
     def distanceWaypointCallback(self, msg):
         self.get_logger().info('Received: "%s"' % msg.data)
@@ -218,7 +232,7 @@ class OffboardControl(Node):
         distanceRight = distance * math.sin(yaw)
         return distanceForward, distanceRight, altitude - self.currentPosition[2], yaw
 
-    def setNewSetpoint(self, x, y, z, yaw):
+    def setNewSetpoint(self, x, y, z, yaw, message):
         self.previousYaw = self.currentYaw
         self.previous_setpoint = self.current_setpoint
         self.current_setpoint = [
@@ -227,6 +241,7 @@ class OffboardControl(Node):
             self.previous_setpoint[2] + z
         ]
         self.currentYaw = yaw
+        self.onWaypointReachedMessage = message
 
     def arm(self):
         self.publish_vehicle_command(VehicleCommand.VEHICLE_CMD_COMPONENT_ARM_DISARM, 1.0)
@@ -262,20 +277,25 @@ class OffboardControl(Node):
             distanceToCoverZ = z - self.localPosition[2]
 
         max_distance = max(abs(distanceToCoverX), abs(distanceToCoverY), abs(distanceToCoverZ))
-        if max_distance < 0.2:
-            self.processing_waypoint = False
-            self.nearTicker = 0
-        elif max_distance < 0.5:
+        if max_distance < 0.2 and self.processing_waypoint:
+            self.onWaypointReached()
+        elif max_distance < 0.5 and self.processing_waypoint:
             self.nearTicker += 1
             if self.nearTicker > 5:
                 self.get_logger().info('Ticks near this waypoint: %s' % self.nearTicker)
-
-        movement_time = max_distance / self.desired_speed
+        
         msg.velocity = self.currentSetpointEndSpeed
 
         msg.yaw = self.currentYaw
         msg.timestamp = self.get_clock().now().nanoseconds // 1000
         self.trajectory_setpoint_publisher.publish(msg)
+
+    def onWaypointReached(self):
+            self.processing_waypoint = False
+            self.nearTicker = 0
+            if (self.onWaypointReachedMessage and self.onWaypointReachedMessage != EMPTY_MESSAGE):
+                self.onWaypointReachedMessage = EMPTY_MESSAGE
+                self.waypointReachedPublisher.publish(String(data=self.onWaypointReachedMessage))
 
     def publish_vehicle_command(self, command, param1=0.0, param2=0.0):
         msg = VehicleCommand()
