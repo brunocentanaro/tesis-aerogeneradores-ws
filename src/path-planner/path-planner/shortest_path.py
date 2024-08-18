@@ -59,8 +59,8 @@ class Section:
 
     def get_ordered_points(self, p_str):
         if p_str == self.p1_str:
-            return self.points
-        return self.points[::-1].tolist()
+            return [self.p1, self.p2]
+        return [self.p2, self.p1]
 
     def get_ordered_points_and_index(self, p_str):
         ps = self.get_ordered_points(p_str)
@@ -207,7 +207,7 @@ def move_to(current: int, currentDistance: float, visited: list, node_order: lis
     return found_solution, best_sub_dist, best_order
 
 
-def shortest_path(sections: List[Section], multiplier=10, turn_cost=0, test_all_starting_positions=False):
+def shortest_path(start_node, sections: List[Section], multiplier=10, turn_cost=0, test_all_starting_positions=False):
     global cache
     # Change normals to not go in z
     m_sections = []
@@ -265,8 +265,8 @@ def shortest_path(sections: List[Section], multiplier=10, turn_cost=0, test_all_
             edges[i, j] = d
             edges[j, i] = d
 
-    start_node = np.array([-0.035274, -0.137386, 1.745499])
-    start_node += np.array([-68, 32, 70])  # Offset
+#    start_node = np.array([-0.035274, -0.137386, 1.745499])
+#    start_node += np.array([-68, 32, 70])  # Offset
     start_node_cost = []
     for p in points:
         d = dist(p, start_node)
@@ -637,7 +637,8 @@ if __name__ == '__main__':
 
     plt.show()
 
-    traj, normals = shortest_path(sections, multiplier=m, turn_cost=tc)
+    start_node = np.array([0, 0, 30])
+    traj, normals = shortest_path(start_node, sections, multiplier=m, turn_cost=tc)
     save_traj(f"p162", np.array(traj))
     save_traj(f"n162", np.array(normals))
 
