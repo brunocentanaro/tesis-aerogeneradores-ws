@@ -36,14 +36,14 @@ class ImageSubscriber(Node):
         image = current_frame
 
         # YOLO object detection
-        results = model.predict(image)
-        img = results[0].plot()
+        # results = model.predict(image)
+        # img = results[0].plot()
+        
+        img = image
         img2 = np.copy(img)
         img3 = np.copy(img)
-        img4 = np.copy(img)
 
         # Convert to grayscale
-        # cv2.cvtColor: Converts the image to a different color space. Here, it's converting from BGR (Blue, Green, Red) to grayscale.
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         #cv2.imshow('Grayscale Image', gray)
 
@@ -56,25 +56,23 @@ class ImageSubscriber(Node):
         # cv2.imshow('Blurred Image', blurred)
 
         # Apply Canny edge detector
-        # cv2.Canny: Performs edge detection using the Canny algorithm. The thresholds determine how strong the edges need to be to be detected.
         edges = cv2.Canny(
             blurred, 
-            threshold1=10,#50, # lower threshold for the hysteresis procedure 
+            threshold1=10, # lower threshold for the hysteresis procedure 
             threshold2=150, # upper threshold for the hysteresis procedure 
             apertureSize=3 # size of the Sobel kernel used for finding image gradients. It can be 1, 3, 5, or 7.
         )
         # cv2.imshow('Edges', edges)
 
-        # Apply Hough Line Transform
-        # cv2.HoughLinesP: Detects lines in the image using the probabilistic Hough Transform. The parameters control the accuracy and characteristics of the detected lines.
+        # Apply probabilistic Hough Line Transform
         lines = cv2.HoughLinesP(
-                    edges,
-                    rho=1, # Distance resolution in pixels
-                    theta=np.pi/180, # Angle resolution in radians
-                    threshold=50, # Min number of votes/intersections for valid line
-                    minLineLength=40, # Min allowed length of line
-                    maxLineGap=20 # Max allowed gap between points on the same line to link them
-                    )
+            edges,
+            rho=1, # Distance resolution in pixels
+            theta=np.pi/180, # Angle resolution in radians
+            threshold=50, # Min number of votes/intersections for valid line
+            minLineLength=40, # Min allowed length of line
+            maxLineGap=25 # Max allowed gap between points on the same line to link them
+        )
 
         for line in lines:
             x1, y1, x2, y2 = line[0]
@@ -98,106 +96,103 @@ class ImageSubscriber(Node):
             # Dibuja las líneas
             for line in y_inverted_found:
                 x1, y1, x2, y2 = line[0]
-                cv2.line(img4, (x1, y1), (x2, y2), (0, 255, 0), 2) # LINEAS Y INVERTIDA VERDE
+                cv2.line(img3, (x1, y1), (x2, y2), (0, 255, 0), 2) # LINEAS Y INVERTIDA VERDE
 
             # Dibuja los puntos de intersección
             for (x, y) in intersections:
-                cv2.circle(img4, (x, y), 5, (0, 0, 255), -1) # PUNTOS INTERSECCION ROJO
+                cv2.circle(img3, (x, y), 5, (0, 0, 255), -1) # PUNTOS INTERSECCION ROJO
 
-            cv2.imshow('Y Inverted Shape', img4)
+            cv2.imshow('Y Inverted Shape', img3)
         else:
             print("No 'Y' inverted shape found")
 
-
-        error_margin = 15  # Ajusta el margen de error según sea necesario
         vertical_lines = []
+        horizontal_lines = []
+        other_lines = []
 
         if lines is not None:
             for line in lines:
                 x1, y1, x2, y2 = line[0]
-                if is_vertical(x1, y1, x2, y2, error_margin):
+                if is_vertical(x1, y1, x2, y2):
                     vertical_lines.append(line)
+                elif is_horizontal(x1, y1, x2, y2):
+                    horizontal_lines.append(line)
+                else:
+                    other_lines.append(line)
 
-        # Dibujar las líneas verticales en la imagen
-        for line in vertical_lines:
+        # Dibujar las líneas restantes (ni verticales ni horizontales) en la imagen
+        for line in other_lines:
             x1, y1, x2, y2 = line[0]
-            cv2.line(img2, (x1, y1), (x2, y2), (0, 255, 0), 2) # LINEAS VERTICALES VERDE
+            cv2.line(img2, (x1, y1), (x2, y2), (255, 0, 0), 2) # LINEAS RESTANTES EN AZUL
+        
+        rotor_position = find_rotor_position(other_lines)
 
-        if vertical_lines:
-            highest = highest_point(vertical_lines)
-            if highest:
-                # Dibujar el punto más alto en la imagen
-                # First estimate of the hub
-                cv2.circle(img2, highest, 5, (0, 0, 255), -1) # PUNTO MAS ALTO ROJO
-
-            distancia_max = 5
-            possible_blades = close_lines(lines, highest, distancia_max)
-            # Dibujar posibles aspas
-            for line in possible_blades:
+        if rotor_position:
+            cv2.circle(img2, rotor_position, 5, (0, 0, 255), -1) # POSIBLE ROTOR ROJO
+            rotor_x, rotor_y = rotor_position
+            for line in vertical_lines:
                 x1, y1, x2, y2 = line[0]
-                cv2.line(img2, (x1, y1), (x2, y2), (255, 0, 0), 2) # POSIBLES ASPAS AZUL 
+                if y1 < rotor_y and y2 < rotor_y:
+                    cv2.line(img2, (x1, y1), (x2, y2), (0, 255, 255), 2) # AMARILLO LINEAS ARRIBA DEL ROTOR
+                elif y1 > rotor_y and y2 > rotor_y:
+                    cv2.line(img2, (x1, y1), (x2, y2), (255, 0, 255), 2) # MAGENTA LINEAS DEBAJO DEL ROTOR
+                else:
+                    cv2.line(img2, (x1, y1), (x2, y2), (0, 255, 0), 2) # VERDE LINEAS CRUZANDO EL ROTOR
+        else:
+            print("No possible rotor found")
 
-        cv2.imshow('Line recognition', img2)
+        cv2.imshow('Remaining Lines', img2)
+        
+        # Dibujar las líneas verticales en la imagen
+        # for line in vertical_lines:
+        #     x1, y1, x2, y2 = line[0]
+        #     cv2.line(img2, (x1, y1), (x2, y2), (0, 255, 0), 2) # LINEAS VERTICALES VERDE
 
-        # Apply Hough Circle Transform
-        # circles = cv2.HoughCircles(
-        #     gray,
-        #     cv2.HOUGH_GRADIENT, # The detection method
-        #     dp=1.2, # The inverse ratio of the accumulator resolution to the image resolution
-        #     minDist=50, # The minimum distance between the centers of detected circles
-        #     param1=150, # The higher threshold of the two passed to the Canny edge detector
-        #     param2=30, # The accumulator threshold for the circle centers at the detection stage. Lower values mean more false circles may be detected.
-        #     minRadius=15, # Minimum circle radius
-        #     maxRadius=30 # Maximum circle radius
-        # )
-        # if circles is not None:
-        #     circles = np.round(circles[0, :]).astype("int")
-        #     for (x, y, r) in circles:
-        #         cv2.circle(img, (x, y), r, (0, 0, 255), 2)
+        # if vertical_lines:
+        #     highest = highest_point(vertical_lines)
+        #     if highest:
+        #         # Dibujar el punto más alto en la imagen
+        #         # First estimate of the hub
+        #         cv2.circle(img2, highest, 5, (0, 0, 255), -1) # PUNTO MAS ALTO ROJO
 
-        # Display the result
+        #     distancia_max = 5
+        #     possible_blades = close_lines(lines, highest, distancia_max)
+        #     # Dibujar posibles aspas
+        #     for line in possible_blades:
+        #         x1, y1, x2, y2 = line[0]
+        #         cv2.line(img2, (x1, y1), (x2, y2), (255, 0, 0), 2) # POSIBLES ASPAS AZUL 
 
-        # Encontrar contornos
-        contours, hierarchy = cv2.findContours(edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-
-        # Dibujar todos los contornos
-        cv2.drawContours(img3, contours, -1, (0, 255, 0), 2)
-
-        # Mostrar la imagen con contornos
-        cv2.imshow('Contours', img3)
-
-        # lines2 = cv2.HoughLines(
-        #                     edges, 
-        #                     1, # rho: The distance resolution of the accumulator in pixels.
-        #                     np.pi/180, # theta: The angle resolution of the accumulator in radians.
-        #                     150 # threshold: The minimum number of intersections (votes) to detect a line.
-        # )
- 
-        # Draw the lines
-        # if lines2 is not None:
-        #     for rho, theta in lines2[:, 0]:
-        #         a = np.cos(theta)
-        #         b = np.sin(theta)
-        #         x0 = a * rho
-        #         y0 = b * rho
-        #         x1 = int(x0 + 1000 * (-b))
-        #         y1 = int(y0 + 1000 * (a))
-        #         x2 = int(x0 - 1000 * (-b))
-        #         y2 = int(y0 - 1000 * (a))
-        #         cv2.line(img2, (x1, y1), (x2, y2), (255, 0, 0), 2)
-        # cv2.imshow('Detected Frame 2', img2)
+        # cv2.imshow('Line recognition', img2)
 
         cv2.waitKey(1)
 
+# Busca la intersección más alta de para las lineas que tengan mas de min_angle entre ellas
+def find_rotor_position(lines, min_angle=10):
+    intersections = []
+    for line1, line2 in combinations(lines, 2):
+        if calculate_angle_between_lines(slope(line1), slope(line2)) > min_angle:
+            intersection = find_line_intersection(line1, line2)
+
+            if intersection:
+                intersections.append(intersection)
+    
+    if intersections:
+        rotor_position = min(intersections, key=lambda point: point[1])
+        return rotor_position
+    return None
+
 # Determina si una línea es vertical dentro de un margen de error
-def is_vertical(x1, y1, x2, y2, error_margin):
+def is_vertical(x1, y1, x2, y2, error_margin=15):
     return abs(x1 - x2) <= error_margin
 
-# Encuentra el punto más alto en una lista de líneas verticales
-# Es al reves por el sistema de referencia
-def highest_point(vertical_lines):
+# Determina si una línea es horizontal dentro de un margen de error
+def is_horizontal(x1, y1, x2, y2, error_margin=15):
+    return abs(y1 - y2) <= error_margin
+
+# Encuentra el punto más alto en una lista de líneas
+def highest_point(lines):
     highest = None
-    for line in vertical_lines:
+    for line in lines:
         x1, y1, x2, y2 = line[0]
         if highest is None or y1 < highest[1]:
             highest = (x1, y1)
@@ -250,7 +245,7 @@ def calculate_angle_between_lines(m1, m2):
         return angle
 
 
-def are_lines_about_120_degrees(m1, m2, margin_of_error=10):
+def are_lines_about_120_degrees(m1, m2, margin_of_error=15):
     # Calcula el ángulo entre las dos líneas
     angle = calculate_angle_between_lines(m1, m2)
     # print('angle', angle)
@@ -287,7 +282,7 @@ def y_inverted(lines):
     return highest
 
 # Encuentra la intersección entre dos líneas representadas por (x1, y1, x2, y2)
-def find_line_intersection(line1, line2):
+def find_line_intersection(line1, line2, tolerance=0.1):
     x1, y1, x2, y2 = line1[0]
     x_1, y_1, x_2, y_2 = line2[0]
 
@@ -298,8 +293,8 @@ def find_line_intersection(line1, line2):
         return a[0] * b[1] - a[1] * b[0]
 
     div = det(xdiff, ydiff)
-    if div == 0:
-        return None  # Las líneas son paralelas o coincidentes
+    if abs(div) < tolerance:
+        return None # Las líneas son casi paralelas o coincidentes
 
     d = (det((x1, y1), (x2, y2)), det((x_1, y_1), (x_2, y_2)))
     x = det(d, xdiff) / div
