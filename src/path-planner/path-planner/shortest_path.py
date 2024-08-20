@@ -4,6 +4,7 @@ import time
 from pathlib import Path
 
 import numpy as np
+from ortools.constraint_solver import routing_enums_pb2, pywrapcp
 from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from scipy.spatial.transform import Rotation
@@ -28,11 +29,9 @@ class Section:
             # Ordena los puntos segun su coordenada Z
             indices = np.argsort(self.points[:, 2])
             self.points = self.points[indices]
-            print("CREANDO SECTIONS", self.points[0], self.points[1])
             self.p1 = midpoint(self.points[0], self.points[1])  # lowest point (no need to sort)
             self.p2 = midpoint(self.points[-1], self.points[-2])  # highest point (need to reorder list)
         else:
-            print("CREANDO SECTIONS", self.points[0])
             self.p1 = self.points[0]
             self.p2 = self.points[0]
         self.length = dist(self.p1, self.p2)
@@ -66,18 +65,8 @@ class Section:
         ps = self.get_ordered_points(p_str)
         return ps, 1 if self.is_one_point_section else 2
 
-
 def get_random_color():
     return (np.random.uniform(0.1, 0.9), np.random.uniform(0.1, 0.9), np.random.uniform(0.1, 0.9))
-
-
-def read_json_file():
-    global cache
-    project_folder = get_project_root()
-    with open(str(Path(project_folder, 'data/out/shortest_path.json')), 'r') as json_file:
-        data = json.load(json_file)
-    return data
-
 
 def writefile(filename, data):
     with open(filename, 'w') as file:
@@ -85,143 +74,16 @@ def writefile(filename, data):
             L = [f"{str(data_point)}\n"]
             file.writelines(L)
 
-
 def dist(p_to, p_from=np.array([0, 0, 0])):
     v = p_to - p_from
     return np.linalg.norm(v)
 
-# current es el indice actual
-# currentDistance es la distancia total recorrida hasta el momento
-# visited es un array donde marco que puntos ya visite
-# node_order es el array de los indices de los puntos en el orden en que los recorre
-# best_dist es 
-# edges es el array de costos de ir de un punto a otro
-# points_to_sections es el diccionario que tiene como key el punto de la m_section stringificado y como valor la section a la que pertenece
-# point_to_index es el diccionario que tiene como key el punto de la m_section stringificado y como valor el indice en points_str
-# points_str es el array de punto de la m_section stringificados
-def move_to(current: int, currentDistance: float, visited: list, node_order: list, global_best_dist: float, edges,
-            points_to_sections, point_to_index, points):
-    # Set visited:
-    visited[current] = 1
-    node_order.append(int(current))
-    # Get end of section:
-    p = points[current]
-    section = points_to_sections[p]
-    p2 = section.get_other_end_str(p)
-
-    # Set visisted
-    current = point_to_index[p2]
-    if visited[current] == 0:
-        visited[current] = 1
-        node_order.append(int(current))
-    # update distance travelled:
-    currentDistance += section.length
-
-    cache_key = f"c:{current}v:{str(visited)}"
-    if cache_key in cache:
-        d = cache[cache_key]
-        distance_travelled = d["dist"]
-        new_order = d["order"]
-        found_solution = d["found"]
-        currentDistance += distance_travelled
-        node_order.extend(new_order)
-        return found_solution, currentDistance, node_order
-
-    indices = np.argsort(edges[current]).astype(int)
-    test = edges[current, indices]
-    best_order = node_order
-    found_solution = True
-    all_visited = True
-    best_sub_dist = float('inf')
-    # print(f"Depth:{len(node_order)}, order[-10]={node_order if len(node_order) < 11 else node_order[-10:]},"
-    #       f" dist={currentDistance}, BEST: {global_best_dist}")
-    # Set default d_cache
-    d_cache = {
-        "dist": best_sub_dist,
-        "order": [best_sub_dist],
-        "found": False
-    }
-    for neighbour_index in indices:
-        if visited[neighbour_index] == 1:
-            continue
-        all_visited = False
-        distance = edges[current, neighbour_index]
-        if distance == -1:
-            continue
-        newDistance = currentDistance + distance
-        finished, resulting_dist, resulting_order = move_to(neighbour_index, newDistance,
-                                                            visited.copy(),
-                                                            node_order.copy(),
-                                                            global_best_dist, edges,
-                                                            points_to_sections, point_to_index,
-                                                            points)
-        # if resulting_order == [4, 5, 0, 1, 17, 16, 9, 10, 8, 7, 21, 20, 6, 13, 14, 12, 11, 15, 18, 19, 3, 2]:
-        #     debug = 0
-        #     # print(f"c:{currentDistance}, nd:{newDistance}, rd:{resulting_dist}, ro:{resulting_order}")
-        #     print(f"index: {current}, c: {currentDistance}, d:{distance}")
-
-        # We need to cache result of each branch to find the best branch to go:
-        if finished and resulting_dist < best_sub_dist:
-            if resulting_dist < 0:
-                debug = 0
-            if len(resulting_order) < len(node_order):
-                debug = 0
-            if len(resulting_order) != 22:
-                debug = 0
-            else:
-                debug = 0
-            d_cache = {
-                "dist": resulting_dist - currentDistance,
-                "order": [x for x in resulting_order if x not in node_order],
-                "found": finished
-            }
-            best_sub_dist = resulting_dist
-            best_order = resulting_order
-
-        # # Find if it is better than global best
-        if found_solution and global_best_dist > resulting_dist:
-            global_best_dist = resulting_dist
-        #     best_order = resulting_order
-
-    # We are done with this section,
-    if all_visited:
-        d_cache = {
-            "dist": 0,
-            "order": [],
-            "found": len(best_order) == len(edges[0])
-        }
-        cache[cache_key] = d_cache
-        if len(best_order) != len(edges[0]):
-            cache[str(visited)] = False
-        else:
-            debug = 0
-        data["current_path"] = node_order
-        # data[save_key] = {"cache": cache, "max_dist": max_dist}
-        # write_shortest_path(data)
-        return len(best_order) == len(edges[0]), currentDistance, best_order
-    else:
-        if d_cache is None:
-            debug = 0
-        cache[cache_key] = d_cache
-
-    return found_solution, best_sub_dist, best_order
-
-
-def shortest_path(start_node, sections: List[Section], multiplier=10, turn_cost=0, test_all_starting_positions=False):
-    global cache
-    # Change normals to not go in z
-    m_sections = []
-    for s in sections:
-        # scale_using_normal / escala las coordenadas X e Y en el sentido de su normal por un factor 'multiplier'.
-        # las Z quedan iguales
-        m_sections.append(s.scale_using_normal(multiplier))
-    best_dist = float('inf')
+def shortest_path(start_node, sections: List[Section], multiplier=10, turn_cost=0):
     points_to_sections = {}
     points = []
     normals = []
     points_str = []  # We dont want to convert np arrays on the fly so do it once here
-    for s in m_sections:
-        print("hola")
+    for s in sections:
         n = s.normal
         points_to_sections[s.p1_str] = s
         points_to_sections[s.p2_str] = s
@@ -233,23 +95,10 @@ def shortest_path(start_node, sections: List[Section], multiplier=10, turn_cost=
             points_str.append(s.p2_str)
             normals.append(n)
 
-    # unscaled version:
-    points_to_sections_us = {}
-    # points_us = []
-    points_us_str = []
-    for s in sections:
-        points_to_sections_us[s.p1_str] = s
-        points_to_sections_us[s.p2_str] = s
-        # points_us.append(s.p1)
-        points_us_str.append(s.p1_str)
-        if np.any(s.p1 != s.p2):
-            # points_us.append(s.p2)
-            points_us_str.append(s.p2_str)
-
     # Compute cost between nodes (turn cost, dist cost, invalid turns=-1)
     # Hay 22 puntos en total 2 por lado + los dos individuales de cada lado.
     # Cada punto representa el punto medio entre los dos de mayor/menor Z de ese lado
-    edges = np.zeros((len(points), len(points)))
+    edges = np.zeros((len(points) + 1, len(points) + 1))
     for i, p in enumerate(points):
         n1 = normals[i]
         for j in range(i + 1, len(points)):
@@ -264,105 +113,94 @@ def shortest_path(start_node, sections: List[Section], multiplier=10, turn_cost=
                 d = dist(p, p2) + (turn_cost if np.all(n1 != n2) else 0)
             edges[i, j] = d
             edges[j, i] = d
-
-#    start_node = np.array([-0.035274, -0.137386, 1.745499])
-#    start_node += np.array([-68, 32, 70])  # Offset
-    start_node_cost = []
-    for p in points:
-        d = dist(p, start_node)
-        start_node_cost.append(d)
-    # array de los indices de los costos de los puntos al start_node (que es igual al de los indices de los puntos) que los ordena de menor a mayor
-    shortest_path_start = np.argsort(start_node_cost)
-    for start_index in shortest_path_start:
-        print(f"new_start = {start_index}")
-        # cache = {}
-        current = start_index
-        currentDistance = start_node_cost[start_index]
-
-        visited = np.zeros((len(points))).tolist()
-        point_to_index = {}
-        # points_str eran los puntos de la m_section stringificados
-        for i, p in enumerate(points_str):
-            point_to_index[p] = i
-        # unvisited[current] = currentDistance
-        m1 = time.perf_counter()
-        # current es el indice actual
-        # currentDistance es la distancia del start_node al indice actual
-        # visited es un array donde marco que puntos ya visite
-        # best_dist es la 
-        # edges es el array de costos de ir de un punto a otro
-        # points_to_sections es el diccionario que tiene como key el punto de la m_section stringificado y como valor la section a la que pertenece
-        # point_to_index es el diccionario que tiene como key el punto de la m_section stringificado y como valor el indice en points_str
-        # points_str es el array de punto de la m_section stringificados
-        found_solution, resulting_dist, resulting_order = move_to(current, currentDistance, visited,
-                                                                  [], best_dist,
-                                                                  edges, points_to_sections,
-                                                                  point_to_index, points_str)
-        print(f"Time: {time.perf_counter() - m1}")
-        get_full_order(multiplier, resulting_order, resulting_dist, points_str, points_to_sections, start_node)
-        if found_solution and resulting_dist < best_dist:
-            best_dist = resulting_dist
-            best_order = resulting_order
-            print(f"Best: order={str(best_order)}, dist={best_dist}")
-        if not test_all_starting_positions:
-            break
+    best_order, best_dist = tsp_brute_force_with_start_node(edges, points, start_node)
     print("Done")
     print(f"Best: order={str(best_order)}, dist={best_dist}")
-    resulting_points = []
-    point_normals = []
-    skip = False
-    for index in best_order:
-        if skip:
-            skip = False
-            continue
-        p_str = points_us_str[index]
-        section_unscaled = points_to_sections_us[p_str]
-        ps = section_unscaled.get_ordered_points(p_str)
-        # t = points_str[index]
-        # s = points_to_sections[t]
-        # p = s.get_ordered_points(t)
+    return points[list(best_order)], normals[list(best_order)]
 
-        resulting_points.extend(ps)
-        for _ in ps:
-            point_normals.append(section_unscaled.normal)
-        skip = not section_unscaled.is_one_point_section
-#    plot_data(np.array(resulting_points), np.array(resulting_points), "testing_results", True, False)
-    # Draw each section with index number
-    # debug = 0
-    # skip = False
-    # for index in best_order:
-    #     # if skip:
-    #     #     skip = False
-    #     #     continue
-    #     p_str = points_str[index]
-    #     section = points_to_sections[p_str]
-    #     ps = section.get_ordered_points(p_str)
-    #     with_start = [start_node]
-    #     with_start.extend(ps)
-    #     plot_data(np.array(resulting_points), np.array(with_start), f"show_order_{index}")
-    #     skip = not section.is_one_point_section
-    return resulting_points, point_normals
+#def calculate_total_cost(permutation, costs, start_distances):
+#    total_cost = 0
+#    # Agregar el costo de ir del start_node al primer nodo en la permutación
+#    total_cost += start_distances[permutation[0]]
+#    # Calcular el costo del recorrido entre los nodos
+#    for i in range(len(permutation) - 1):
+#        total_cost += costs[permutation[i]][permutation[i + 1]]
+#    return total_cost
+#
+#def tsp_brute_force_with_start_node(costs, points, start_node):
+#    # Calcular las distancias desde el start_node a todos los otros nodos
+#    start_distances = np.array([dist(start_node, points[i]) for i in range(1, len(points))])
+#    nodes = list(range(len(points)))  # Nodos a permutar
+#    # Generar todas las permutaciones posibles de los nodos
+#    all_permutations = itertools.permutations(nodes)
+#    # Inicializar variables para guardar la mejor ruta y su costo
+#    min_cost = float('inf')
+#    best_path = None
+#    for permutation in all_permutations:
+#        current_cost = calculate_total_cost(permutation, costs, start_distances)
+#        if current_cost < min_cost:
+#            min_cost = current_cost
+#            best_path = permutation
+#    return best_path, min_cost
 
 
-def get_full_order(m, test_order, dist, points_str, points_to_sections, start_node=None):
-    resulting_points = []
-    if start_node is not None:
-        resulting_points.append(([start_node], get_random_color()))
-    skip = False
-    for index in test_order:
-        if skip:
-            skip = False
-            continue
-        p_str = points_str[index]
-        section = points_to_sections[p_str]
-        c = section.color
-        # agarra todos los puntos de la section, no solo p1 y p2. por eso queda el zigzag. los agarra en orden, si p_str es p1, agarra p1 px py pz p2, si p_str es p2, agarra p2 pz py px p1
-        ps = section.get_ordered_points(p_str)
-        resulting_points.append((ps, c))
-        skip = not section.is_one_point_section
-    plot_data_color_connected(resulting_points, f"m_{m}_d_{dist}_o_{str(test_order)}", dpi=300)
-    debug = 0
+def solve_tsp(edges, points, start_node, data):
+    num_nodes = 22
+    cost_matrix = np.zeros((num_nodes + 1, num_nodes + 1))
 
+    # Fill in the distance matrix (you should replace these with your actual distances)
+    for i in range(num_nodes):
+        for j in range(num_nodes):
+            cost_matrix[i + 1, j + 1] = distance_between_nodes[i][j]  # Replace with your actual distances
+
+    # Add costs from the initial node to each of the 22 nodes
+    initial_node_distances = np.array([distance_from_initial_to_node[i] for i in range(num_nodes)])
+    cost_matrix[0, 1:] = initial_node_distances
+    cost_matrix[1:, 0] = initial_node_distances
+
+    """Solve the TSP problem."""
+    # Create the routing index manager
+    manager = pywrapcp.RoutingIndexManager(len(data['distance_matrix']), 1, 0)
+    
+    # Create Routing Model
+    routing = pywrapcp.RoutingModel(manager)
+    
+    # Create and register a transit callback
+    def distance_callback(from_index, to_index):
+        # Returns the distance between the two nodes.
+        from_node = manager.IndexToNode(from_index)
+        to_node = manager.IndexToNode(to_index)
+        return data['distance_matrix'][from_node][to_node]
+    
+    transit_callback_index = routing.RegisterTransitCallback(distance_callback)
+    routing.SetArcCostEvaluatorOfAllVehicles(transit_callback_index)
+    
+    # Set search parameters
+    search_parameters = pywrapcp.DefaultRoutingSearchParameters()
+    search_parameters.first_solution_strategy = (
+        routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC)
+    
+    # Solve the problem
+    solution = routing.SolveWithParameters(search_parameters)
+    
+    # Print solution on console
+    if solution:
+        index = routing.Start(0)
+        route = []
+        while not routing.IsEnd(index):
+            route.append(manager.IndexToNode(index))
+            index = solution.Value(routing.NextVar(index))
+        route.append(manager.IndexToNode(index))
+        
+        # Compute the total distance
+        total_distance = 0
+        for i in range(len(route) - 1):
+            total_distance += data['distance_matrix'][route[i]][route[i + 1]]
+        total_distance += data['distance_matrix'][route[-1]][route[0]]  # Return to the start node
+        
+        return route, total_distance
+    else:
+        return None, None
 
 def grouping(obj):
     centers = obj.center
@@ -418,8 +256,6 @@ def grouping(obj):
                 random_state=0
             )
             clf.fit_predict(np_g)
-            print(clf.cluster_centers_)
-            print(clf.labels_)
 
             for i in range(int(number_of_groups)):
                 sub_grp = []
@@ -429,7 +265,6 @@ def grouping(obj):
                 grps.append((string_to_normal[k], sub_grp))
 
             debug = 0
-    # plot_data_color(grps, "yes")
     return grps
 
 
@@ -501,76 +336,13 @@ def plot_data_color_sections(sections, title, save=False, show=True, dpi=600):
         plt.clf()
     return ax
 
-
 def write_shortest_path(info):
     # Directly from dictionary
     with open('data/out/shortest_path.json', 'w') as outfile:
         json.dump(info, outfile)
 
-
 def midpoint(p1, p2):
     return (p1 + p2) / 2
-
-
-def find_dist_of_order(order, sections, multiplier, turn_cost):
-    global cache
-    cache = {}
-    m_sections = []
-    for s in sections:
-        m_sections.append(s.scale_using_normal(multiplier))
-    best_dist = float('inf')
-    points_to_sections = {}
-    points = []
-    normals = []
-    points_str = []  # We dont want to convert np arrays on the fly so do it once here
-    for s in m_sections:
-        n = s.normal
-        points_to_sections[s.p1_str] = s
-        points_to_sections[s.p2_str] = s
-        points.append(s.p1)
-        points_str.append(s.p1_str)
-        normals.append(n)
-        if np.any(s.p1 != s.p2):
-            points.append(s.p2)
-            points_str.append(s.p2_str)
-            normals.append(n)
-
-    edges = np.full((len(points), len(points)), -1., float)
-    for index in range(len(order)):
-        if index == 0:
-            continue
-        from_index = order[index - 1]
-        to_index = order[index]
-        n1 = normals[from_index]
-        n2 = normals[to_index]
-        p = points[from_index]
-        p2 = points[to_index]
-        d = dist(p, p2) + (turn_cost if np.all(n1 != n2) else 0)
-        edges[from_index, to_index] = d
-
-    start_node = np.array([-0.035274, -0.137386, 1.745499])
-    start_node += np.array([-68, 32, 70])  # Offset
-    start_cost = dist(points[order[0]], start_node)
-    print(f"testing order = {order}")
-    # cache = {}
-    current = order[0]
-    currentDistance = start_cost
-
-    visited = np.zeros((len(points))).tolist()
-    point_to_index = {}
-    for i, p in enumerate(points_str):
-        point_to_index[p] = i
-    # unvisited[current] = currentDistance
-    m1 = time.perf_counter()
-    found_solution, resulting_dist, resulting_order = move_to(current, currentDistance, visited,
-                                                              [], best_dist,
-                                                              edges, points_to_sections,
-                                                              point_to_index, points_str)
-    print(f"Time: {time.perf_counter() - m1}")
-    get_full_order(multiplier, resulting_order, resulting_dist, points_str, points_to_sections, start_node)
-    print("Done")
-    print(f"Best: order={str(resulting_order)}, dist={resulting_dist}")
-
 
 def save_traj(filename, traj):
     if traj.shape[0] != 3:
@@ -580,7 +352,6 @@ def save_traj(filename, traj):
     writefile(f"data/out/{filename}_x.txt", data[0])
     writefile(f"data/out/{filename}_y.txt", data[1])
     writefile(f"data/out/{filename}_z.txt", data[2])
-
 
 if __name__ == '__main__':
     seed = 21
@@ -595,57 +366,15 @@ if __name__ == '__main__':
 #                  translate_before_rotate=False)
 #    wt = wt.transform(t)
     gps = grouping(wt)
-#    fit = []
-#    points = []
     sections = []
     for i, (n, g) in enumerate(gps):
         sections.append(Section(g, n, get_distinct_color(i)))
-    plot_data_color_sections(sections, "te", True, False)
-    m = 10
-    tc = 0
-
-    puntos = []
-
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-
-    for section in sections:
-        puntos.append(section.p1)
-        puntos.append(section.p2)
-
-
-    x,y,z = zip(*puntos)
-    ax.scatter(x,y,z)
-
-    # Recorrer todas las caras (triángulos) de la malla
-    for i, triangle in enumerate(wt.vertices):
-        # Extraer los vértices del triángulo
-        x = triangle[:, 0]
-        y = triangle[:, 1]
-        z = triangle[:, 2]
-
-        # Graficar los puntos del triángulo
-        ax.scatter(x, y, z, color='blue')
-
-        # Graficar las aristas del triángulo
-        for i in range(3):
-            ax.plot([x[i], x[(i+1) % 3]], [y[i], y[(i+1) % 3]], [z[i], z[(i+1) % 3]], color='black')
-
-    ax.set_xlabel('X')
-    ax.set_ylabel('Y')
-    ax.set_zlabel('Z')
-
-    plt.show()
+#    plot_data_color_sections(sections, "te", True, False)
 
     start_node = np.array([0, 0, 30])
-    traj, normals = shortest_path(start_node, sections, multiplier=m, turn_cost=tc)
+    traj, normals = shortest_path(start_node, sections, multiplier=10, turn_cost=0)
+#    plot_data_color_connected(traj, "title", save=False, show=True, dpi=600)
     save_traj(f"p162", np.array(traj))
     save_traj(f"n162", np.array(normals))
-
-#    test_order_GP = [4, 5, 0, 1, 17, 16, 9, 10, 8, 7, 21, 20, 6, 13, 14, 12, 11, 15, 18, 19, 3, 2]
-#    find_dist_of_order(test_order_GP, sections, multiplier=m, turn_cost=tc)
-
-#    tc_0_best_order = [4, 5, 0, 1, 8, 7, 21, 20, 6, 13, 14, 9, 10, 17, 16, 12, 11, 15, 18, 19, 3, 2]
-#    find_dist_of_order(tc_0_best_order, sections, multiplier=m, turn_cost=tc)
 
     debug = 0
