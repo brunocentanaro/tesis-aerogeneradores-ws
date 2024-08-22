@@ -159,12 +159,17 @@
       <ambient>0.400000006 0.400000006 0.400000006 1</ambient>
       <background>0.699999988 0.699999988 0.699999988 1</background>
       <shadows>true</shadows>
+      <sky>
+        <clouds>
+          <speed>12</speed>
+        </clouds>
+      </sky>
     </scene>
     <spherical_coordinates>
       <surface_model>EARTH_WGS84</surface_model>
       <world_frame_orientation>ENU</world_frame_orientation>
       <latitude_deg>-34.628104</latitude_deg>
-      <longitude_deg>-54.957510</longitude_deg>
+      <longitude_deg>-54.957509999999999</longitude_deg>
       <elevation>0</elevation>
       <heading_deg>0</heading_deg>
     </spherical_coordinates>
@@ -176,23 +181,28 @@
     <include>
       <uri>model://MolinoChico</uri>
       <name>Molino</name>
-      <pose>-77.744102478027344 -140.76300048828125 53.679370880126953 0 0 -2.3641899921970122</pose>
+      <pose>-77.744102478027344 -140.76300048828125 53.679401397705078 0 0 3.1264334993473795</pose>
     </include>
     <include>
-      <uri>model://MolinoChico</uri>
+      <uri>model://NuevoMolino</uri>
       <name>Molino_0</name>
-      <pose>33.265899658203125 146.69599914550781 47.939193725585938 0 0 0</pose>
+      <pose>33.30059814453125 145.95100402832031 59.433998107910156 3.1228458465232056 0.025870999023636407 -0.20191499072161972</pose>
+    </include>
+    <include>
+      <uri>model://NuevoMolino</uri>
+      <name>Molino_test</name>
+      <pose>-68.569297790527344 -133.05000305175781 65.096298217773438 -3.1313245247705042 0.026471856804239843 1.8490351973788923</pose>
     </include>
     <include>
       <uri>model://x500_depth</uri>
       <name>x500_depth_0</name>
-      <pose>-78.979598999033044 -93.531097412173651 54.679736735135926 6.1457147509231618e-13 3.020208302504148e-09 -1.5556999412837302</pose>
+      <pose>-78.979598999033044 -93.531097412173338 54.67973674281729 6.0838146871571696e-13 3.0436981251952733e-09 -1.5556999412837302</pose>
     </include>
     <light name="sunUTC" type="directional">
-      <pose>0 0 500 0 0 0</pose>
+      <pose>-68 -66 150 0 0 0</pose>
       <cast_shadows>true</cast_shadows>
       <intensity>1</intensity>
-      <direction>0.001 0.625 -0.78000000000000003</direction>
+      <direction>0 -0.56000000000000005 -0.82999999999999996</direction>
       <diffuse>0.903999984 0.903999984 0.903999984 1</diffuse>
       <specular>0.270999998 0.270999998 0.270999998 1</specular>
       <attenuation>
