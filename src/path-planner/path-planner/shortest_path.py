@@ -60,7 +60,12 @@ class Section:
         if p_str == self.p1_str:
             return [self.p1, self.p2]
         return [self.p2, self.p1]
-
+    
+    def get_point_from_str(self, p_str):
+        if p_str == self.p1_str:
+            return self.p1
+        return self.p2
+    
     def get_ordered_points_and_index(self, p_str):
         ps = self.get_ordered_points(p_str)
         return ps, 1 if self.is_one_point_section else 2
@@ -82,7 +87,7 @@ def shortest_path(start_node, sections: List[Section], multiplier=10, turn_cost=
     points_to_sections = {}
     points = []
     normals = []
-    points_str = []  # We dont want to convert np arrays on the fly so do it once here
+    points_str = []
     for s in sections:
         n = s.normal
         points_to_sections[s.p1_str] = s
@@ -98,7 +103,7 @@ def shortest_path(start_node, sections: List[Section], multiplier=10, turn_cost=
     # Compute cost between nodes (turn cost, dist cost, invalid turns=-1)
     # Hay 22 puntos en total 2 por lado + los dos individuales de cada lado.
     # Cada punto representa el punto medio entre los dos de mayor/menor Z de ese lado
-    edges = np.zeros((len(points) + 1, len(points) + 1))
+    edges = np.zeros((len(points), len(points)))
     for i, p in enumerate(points):
         n1 = normals[i]
         for j in range(i + 1, len(points)):
@@ -108,97 +113,75 @@ def shortest_path(start_node, sections: List[Section], multiplier=10, turn_cost=
             # basicamente prohibido saltarse caras
             if np.all(n1 + n2 == np.zeros(3)):
                 d = -1
+            elif points_to_sections[str(p)] == points_to_sections[str(p2)]:
+                d = 0
             else:
                 # le agrega un costo a las distancias si tiene que cambiar normal (lado de la/s pala/s)
                 d = dist(p, p2) + (turn_cost if np.all(n1 != n2) else 0)
             edges[i, j] = d
             edges[j, i] = d
-    best_order, best_dist = tsp_brute_force_with_start_node(edges, points, start_node)
-    print("Done")
-    print(f"Best: order={str(best_order)}, dist={best_dist}")
-    return points[list(best_order)], normals[list(best_order)]
-
-#def calculate_total_cost(permutation, costs, start_distances):
-#    total_cost = 0
-#    # Agregar el costo de ir del start_node al primer nodo en la permutación
-#    total_cost += start_distances[permutation[0]]
-#    # Calcular el costo del recorrido entre los nodos
-#    for i in range(len(permutation) - 1):
-#        total_cost += costs[permutation[i]][permutation[i + 1]]
-#    return total_cost
-#
-#def tsp_brute_force_with_start_node(costs, points, start_node):
-#    # Calcular las distancias desde el start_node a todos los otros nodos
-#    start_distances = np.array([dist(start_node, points[i]) for i in range(1, len(points))])
-#    nodes = list(range(len(points)))  # Nodos a permutar
-#    # Generar todas las permutaciones posibles de los nodos
-#    all_permutations = itertools.permutations(nodes)
-#    # Inicializar variables para guardar la mejor ruta y su costo
-#    min_cost = float('inf')
-#    best_path = None
-#    for permutation in all_permutations:
-#        current_cost = calculate_total_cost(permutation, costs, start_distances)
-#        if current_cost < min_cost:
-#            min_cost = current_cost
-#            best_path = permutation
-#    return best_path, min_cost
-
-
-def solve_tsp(edges, points, start_node, data):
-    num_nodes = 22
-    cost_matrix = np.zeros((num_nodes + 1, num_nodes + 1))
-
-    # Fill in the distance matrix (you should replace these with your actual distances)
-    for i in range(num_nodes):
-        for j in range(num_nodes):
-            cost_matrix[i + 1, j + 1] = distance_between_nodes[i][j]  # Replace with your actual distances
 
     # Add costs from the initial node to each of the 22 nodes
-    initial_node_distances = np.array([distance_from_initial_to_node[i] for i in range(num_nodes)])
-    cost_matrix[0, 1:] = initial_node_distances
-    cost_matrix[1:, 0] = initial_node_distances
+    start_distances = np.array([dist(start_node, points[i]) for i in range(len(points))])
+    # Agregar la fila
+    edges = np.vstack([start_distances, edges])
+    # Agregar la columna (asegúrate de que extra_col sea una columna)
+    edges = np.hstack([np.hstack((0, start_distances)).reshape(-1, 1), edges])
+    best_order, best_dist = solve_tsp(start_node, points, edges)
+    print("Done")
+    print(f"Best: order={str(best_order)}, dist={best_dist}")
+    get_full_order(0, best_order, best_dist, points_str, points_to_sections)
+    return np.array(points)[best_order], np.array(normals)[best_order]
 
-    """Solve the TSP problem."""
-    # Create the routing index manager
-    manager = pywrapcp.RoutingIndexManager(len(data['distance_matrix']), 1, 0)
-    
-    # Create Routing Model
+def solve_tsp(start_node, points, edges):
+    modifiedPoints = points.copy()
+    modifiedPoints.insert(0, start_node)
+    # Escalo edges y lo paso a ints
+    edges = np.round(edges * 100).astype(int)    
+
+    manager = pywrapcp.RoutingIndexManager(len(edges), 1, 0)
     routing = pywrapcp.RoutingModel(manager)
     
+    
+    # Create and register a transit callback
+
     # Create and register a transit callback
     def distance_callback(from_index, to_index):
-        # Returns the distance between the two nodes.
         from_node = manager.IndexToNode(from_index)
         to_node = manager.IndexToNode(to_index)
-        return data['distance_matrix'][from_node][to_node]
+        return edges[from_node][to_node]
     
     transit_callback_index = routing.RegisterTransitCallback(distance_callback)
     routing.SetArcCostEvaluatorOfAllVehicles(transit_callback_index)
-    
-    # Set search parameters
     search_parameters = pywrapcp.DefaultRoutingSearchParameters()
-    search_parameters.first_solution_strategy = (
-        routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC)
-    
-    # Solve the problem
+    #search_parameters.first_solution_strategy = (
+    #    routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC)
+    search_parameters.local_search_metaheuristic = (
+        routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH)
+    search_parameters.time_limit.seconds = 5
     solution = routing.SolveWithParameters(search_parameters)
     
+    
+    # Print solution on console
+
     # Print solution on console
     if solution:
         index = routing.Start(0)
         route = []
+        route_distance = 0
         while not routing.IsEnd(index):
             route.append(manager.IndexToNode(index))
+            previous_index = index
             index = solution.Value(routing.NextVar(index))
+            route_distance += routing.GetArcCostForVehicle(previous_index, index, 0)
         route.append(manager.IndexToNode(index))
         
-        # Compute the total distance
-        total_distance = 0
-        for i in range(len(route) - 1):
-            total_distance += data['distance_matrix'][route[i]][route[i + 1]]
-        total_distance += data['distance_matrix'][route[-1]][route[0]]  # Return to the start node
-        
-        return route, total_distance
+        # Elimino el start_node de la solucion
+        route = np.array(route)
+        route_non_zero = route[route != 0]
+        route_adjusted = route_non_zero - 1
+
+        return route_adjusted, route_distance / 100
     else:
         return None, None
 
@@ -267,6 +250,24 @@ def grouping(obj):
             debug = 0
     return grps
 
+def get_full_order(m, test_order, dist, points_str, points_to_sections, start_node=None):
+    resulting_points = []
+    if start_node is not None:
+        resulting_points.append(([start_node], get_random_color()))
+        print(test_order)
+    for index in test_order:
+        p_str = points_str[index]
+        section = points_to_sections[p_str]
+        resulting_points.append(([section.get_point_from_str(p_str)], get_color_test(index)))
+    plot_data_color_connected(resulting_points, f"m_{m}_d_{dist}_o_{str(test_order)}", dpi=300)
+    debug = 0
+
+def get_color_test(index, max_index=22):    
+    normalized_index = min(max(index / max_index, 0), 1)
+    red = int(255 * (1 - normalized_index))
+    green = 0
+    blue = 0
+    return (red / 255, green / 255, blue / 255)
 
 def plot_data_color(data, title, save=False, show=True, dpi=600):
     # now lets plot it!
@@ -276,7 +277,7 @@ def plot_data_color(data, title, save=False, show=True, dpi=600):
     ax.set_facecolor('white')
     for d_grp in data:
         d = np.array(d_grp).transpose()
-        ax.plot(d[0], d[1], d[2], label='Original Global Path', lw=2,
+        ax.plot(d[0], d[1], d[2], lw=2,
                 c=(np.random.uniform(0.1, 0.9), np.random.uniform(0.1, 0.9), np.random.uniform(0.1, 0.9)))
     ax.legend()
     # plt.xlim(-50, -110)
@@ -371,10 +372,9 @@ if __name__ == '__main__':
         sections.append(Section(g, n, get_distinct_color(i)))
 #    plot_data_color_sections(sections, "te", True, False)
 
-    start_node = np.array([0, 0, 30])
+    start_node = np.array([0, -30, 30])
     traj, normals = shortest_path(start_node, sections, multiplier=10, turn_cost=0)
-#    plot_data_color_connected(traj, "title", save=False, show=True, dpi=600)
-    save_traj(f"p162", np.array(traj))
-    save_traj(f"n162", np.array(normals))
+    save_traj(f"p162", traj)
+    save_traj(f"n162", normals)
 
     debug = 0
