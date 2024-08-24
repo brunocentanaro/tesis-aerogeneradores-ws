@@ -1,162 +1,13 @@
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import String
-from abc import ABC, abstractmethod
-from enum import Enum
+from wind_turbine_inspection.states.ApproachState import ApproachState
+from wind_turbine_inspection.states.BackInspectionState import BackInspectionState
+from wind_turbine_inspection.states.FrontInspectionState import FrontInspectionState
+from wind_turbine_inspection.states.IdleState import IdleState
+from wind_turbine_inspection.states.OrthogonalAlignmentState import OrthogonalAlignmentState
+from wind_turbine_inspection.states.ReturnHomeState import ReturnHomeState
+from wind_turbine_inspection.states.TakeoffState import TakeoffState
 
-windTurbineTypeAndLocation = [
-    {
-        "height": 89,
-        "coordinates": {
-            "latitude": -34.627257,
-            "longitude": -54.957857
-        },
-        "bladeLength": 55
-    }
-]
-
-
-class WindTurbineInspectionStage(Enum):
-    IDLE = "idle"
-    TAKEOFF = "takeoff"
-    APPROACH = "approach"
-    ORTHOGONAL_ALIGNMENT = "orthogonal_alignment"
-    FRONT_INSPECTION = "front_inspection"
-    BACK_INSPECTION = "back_inspection"
-    RETURN_HOME = "return_home"
-
-class InspectionState(ABC, Node):
-    shared_state = {}
-
-    def __init__(self, node_name, name, state_machine):
-        super().__init__(node_name)
-        self.name = name
-        self.state_machine = state_machine
-        self.subscriber = self.create_subscription(String, 'waypoint_reached', self.waypoint_reached_callback, 10)
-
-    @abstractmethod
-    def next_state(self):
-        pass
-
-    @abstractmethod
-    def waypoint_reached_callback(self, msg):
-        pass
-
-    def advance_to_next_state(self):
-        next_state = self.next_state()
-        self.state_machine.change_state(next_state)
-
-    @classmethod
-    def update_shared_state(cls, key, value):
-        cls.shared_state[key] = value
-
-class IdleState(InspectionState):
-    def __init__(self, state_machine):
-        super().__init__('idle_state', WindTurbineInspectionStage.IDLE, state_machine)
-        self.declare_parameter('mission_param', 0)
-        mission_param = self.get_parameter('mission_param').get_parameter_value().integer_value
-        self.update_shared_state('mission_param', mission_param)
-
-        self.get_logger().info(f"Mission parameter: {mission_param}")
-        self.get_logger().info("IdleState created")
-        self.timer = self.create_timer(20.0, self.startAfter20Seconds)
-        self.get_logger().info(f"Timer created {self.timer.time_until_next_call()}")
-
-    def startAfter20Seconds(self):
-        self.advance_to_next_state()
-
-    def next_state(self):
-        return TakeoffState(self.state_machine)
-
-    def waypoint_reached_callback(self, msg):
-        self.get_logger().info(f"IdleState received: {msg.data}")
-
-class TakeoffState(InspectionState):
-    def __init__(self, state_machine):
-        super().__init__('takeoff_state', WindTurbineInspectionStage.TAKEOFF, state_machine)
-
-        windTurbineHeight = windTurbineTypeAndLocation[self.shared_state['mission_param']]['height']
-        self.startTakeoffPublisher = self.create_publisher(String, 'start_takeoff_procedure', 10)
-        self.startTakeoffPublisher.publish(String(data=f"{windTurbineHeight}"))
-
-    def next_state(self):
-        return ApproachState(self.state_machine)
-
-    def waypoint_reached_callback(self, msg):
-        self.get_logger().info(f"TakeoffState received: {msg.data}")
-        self.advance_to_next_state()
-
-class ApproachState(InspectionState):
-    def __init__(self, state_machine):
-        super().__init__('approach_state', WindTurbineInspectionStage.APPROACH, state_machine)
-        self.publisher = self.create_publisher(String, 'gps_waypoint', 10)
-        mission_param = self.shared_state['mission_param']
-
-        self.get_logger().info('Publishing waypoint')
-        newCoord = windTurbineTypeAndLocation[mission_param]['coordinates']
-        height = windTurbineTypeAndLocation[mission_param]['height']
-        self.publish_waypoint(f"{newCoord['latitude']},{newCoord['longitude']},{height}") 
-
-    def publish_waypoint(self, waypoint):
-        msg = String()
-        msg.data = waypoint
-        self.publisher.publish(msg)
-        self.get_logger().info('Publishing: "%s"' % msg.data)
-
-    def next_state(self):
-        return OrthogonalAlignmentState(self.state_machine)
-
-    def waypoint_reached_callback(self, msg):
-        self.get_logger().info(f"ApproachState received: {msg.data}")
-        self.advance_to_next_state()
-
-
-class OrthogonalAlignmentState(InspectionState):
-    def __init__(self, state_machine):
-        super().__init__('orthogonal_alignment_state', WindTurbineInspectionStage.ORTHOGONAL_ALIGNMENT, state_machine)
-        self.advance_to_next_state()
-
-    def next_state(self):
-        return FrontInspectionState(self.state_machine)
-
-    def waypoint_reached_callback(self, msg):
-        self.get_logger().info(f"OrthogonalAlignmentState received: {msg.data}")
-
-class FrontInspectionState(InspectionState):
-    def __init__(self, state_machine):
-        super().__init__('front_inspection_state', WindTurbineInspectionStage.FRONT_INSPECTION, state_machine)
-        windTurbineId = self.shared_state['mission_param']
-        windTurbineBladeLength = windTurbineTypeAndLocation[windTurbineId]['bladeLength']
-
-        self.startInspectionPublisher = self.create_publisher(String, 'inspect_wind_turbine', 10)
-        self.startInspectionPublisher.publish(String(data=f"{windTurbineBladeLength}"))
-
-    def next_state(self):
-        return BackInspectionState(self.state_machine)
-
-    def waypoint_reached_callback(self, msg):
-        self.get_logger().info(f"FrontInspectionState received: {msg.data}")
-
-class BackInspectionState(InspectionState):
-    def __init__(self, state_machine):
-        super().__init__('back_inspection_state', WindTurbineInspectionStage.BACK_INSPECTION, state_machine)
-
-    def next_state(self):
-        return ReturnHomeState(self.state_machine)
-
-    def waypoint_reached_callback(self, msg):
-        self.get_logger().info(f"BackInspectionState received: {msg.data}")
-
-class ReturnHomeState(InspectionState):
-    def __init__(self, state_machine):
-        super().__init__('return_home_state', WindTurbineInspectionStage.RETURN_HOME, state_machine)
-
-    def next_state(self):
-        return IdleState()
-
-    def waypoint_reached_callback(self, msg):
-        self.get_logger().info(f"ReturnHomeState received: {msg.data}")
-    
 
 class WindTurbineInspectionStateMachine(Node):
     def __init__(self):
@@ -165,10 +16,27 @@ class WindTurbineInspectionStateMachine(Node):
         rclpy.spin_once(self.current_state)
         self.run()
 
-    def change_state(self, new_state):
+    def change_state(self):
+        current_state = type(self.current_state)
         self.current_state.destroy_node()
-        self.current_state = new_state
-        self.get_logger().info(f"State changed to: {self.current_state.name}")
+    
+        if current_state is IdleState:
+            self.current_state = TakeoffState(self)
+        elif current_state is TakeoffState:
+            self.current_state = ApproachState(self)
+        elif current_state is ApproachState:
+            self.current_state = OrthogonalAlignmentState(self)
+        elif current_state is OrthogonalAlignmentState:
+            self.current_state = FrontInspectionState(self)
+        elif current_state is FrontInspectionState:
+            self.current_state = BackInspectionState(self)
+        elif current_state is BackInspectionState:
+            self.current_state = ReturnHomeState(self)
+        elif current_state is ReturnHomeState:
+            self.current_state = IdleState(self)
+        else:
+            self.current_state = IdleState(self)
+
         rclpy.spin_once(self.current_state) 
 
     def run(self):
