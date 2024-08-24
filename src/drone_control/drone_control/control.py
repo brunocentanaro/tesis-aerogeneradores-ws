@@ -4,50 +4,27 @@ from px4_msgs.msg import OffboardControlMode, TrajectorySetpoint, VehicleCommand
 from std_msgs.msg import String
 from rclpy.qos import QoSProfile, QoSDurabilityPolicy, QoSReliabilityPolicy
 import math
+from drone_control.utils import distance_and_bearing
 
+IN_WAYPOINT_THRESHOLD = 0.2
+NEAR_WAYPOINT_THRESHOLD = 0.5
 EMPTY_MESSAGE = ""
-
-def distance_and_bearing(lat1, lon1, lat2, lon2):
-    # Convertir grados a radianes
-    lat1_rad = math.radians(lat1)
-    lon1_rad = math.radians(lon1)
-    lat2_rad = math.radians(lat2)
-    lon2_rad = math.radians(lon2)
-    
-    # Radio de la Tierra en metros
-    R = 6371000
-    
-    # Diferencias de coordenadas
-    dlat = lat2_rad - lat1_rad
-    dlon = lon2_rad - lon1_rad
-    
-    # Fórmula de Haversine
-    a = math.sin(dlat / 2) ** 2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon / 2) ** 2
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-    distance = R * c
-    
-    # Fórmula para el ángulo
-    x = math.sin(dlon) * math.cos(lat2_rad)
-    y = math.cos(lat1_rad) * math.sin(lat2_rad) - math.sin(lat1_rad) * math.cos(lat2_rad) * math.cos(dlon)
-    bearing = math.atan2(x, y)
-    
-    return distance, bearing
 
 class OffboardControl(Node):
     def __init__(self):
         super().__init__('offboard_control')
-        self.offboard_control_mode_publisher = self.create_publisher(OffboardControlMode, '/fmu/in/offboard_control_mode', 10)
-        self.trajectory_setpoint_publisher = self.create_publisher(TrajectorySetpoint, '/fmu/in/trajectory_setpoint', 10)
-        self.vehicle_command_publisher = self.create_publisher(VehicleCommand, '/fmu/in/vehicle_command', 10)
-        self.manual_control_setpoint_publisher = self.create_publisher(ManualControlSetpoint, '/fmu/in/manual_control_setpoint', 10)
-
-        self.offboard_setpoint_counter = 0
         self.previous_setpoint = [0.0, 0.0, 0.0]
         self.current_setpoint = [0.0, 0.0, 0.0]
         self.currentSetpointEndSpeed = [0.0, 0.0, 0.0]
         self.currentYaw = 0.0
         self.previousYaw = 0.0
-        self.current_manual_control_setpoint = [0.0, 0.0, 0.5, 0.0]
+        self.wayPointsStack = []
+        self.processing_waypoint = False
+        self.currentLocalPosition = None
+        self.nearTicker = 0
+        self.maxSpeed = 1/9
+        self.shouldArmAndTakeoff = False
+        self.inTakeoffProcedure = False
 
         self.timer = self.create_timer(0.1, self.timer_callback)
 
@@ -62,9 +39,6 @@ class OffboardControl(Node):
             'gps_waypoint',
             self.gpsWaypointCallback,
             10)
-        
-        self.desired_speed = 0.5
-        self.in_manual_speed_mode = True
 
         qos_profile = QoSProfile(
             reliability=QoSReliabilityPolicy.BEST_EFFORT,
@@ -94,10 +68,6 @@ class OffboardControl(Node):
             qos_profile
         )
 
-        self.wayPointsStack = []
-        self.processing_waypoint = False
-        self.localPosition = None
-
         self.startWindTurbineInspection = self.create_subscription(
             String,
             'inspect_wind_turbine',
@@ -105,16 +75,12 @@ class OffboardControl(Node):
             10
         )
 
-        self.nearTicker =0
         self.advanceToNextWaypoint = self.create_subscription(
             String,
             'advance_to_next_waypoint',
             self.advanceToNextWaypointCallback,
             10
         )
-        self.maxSpeed = 1/9
-        self.shouldArmAndTakeoff = False
-        self.inTakeoffProcedure = False
 
         self.startTakeoffProcedureSubscription = self.create_subscription(
             String,
@@ -123,7 +89,12 @@ class OffboardControl(Node):
             10
         )
 
+        self.offboard_control_mode_publisher = self.create_publisher(OffboardControlMode, '/fmu/in/offboard_control_mode', 10)
+        self.trajectory_setpoint_publisher = self.create_publisher(TrajectorySetpoint, '/fmu/in/trajectory_setpoint', 10)
+        self.vehicle_command_publisher = self.create_publisher(VehicleCommand, '/fmu/in/vehicle_command', 10)
+        self.manual_control_setpoint_publisher = self.create_publisher(ManualControlSetpoint, '/fmu/in/manual_control_setpoint', 10)
         self.waypointReachedPublisher = self.create_publisher(String, 'waypoint_reached', 10)
+
 
     def startTakeoffProcedure(self, msg):
         try:
@@ -138,7 +109,7 @@ class OffboardControl(Node):
         self.onWaypointReached()
 
     def localPositionCallback(self, msg):
-        self.localPosition = [msg.x, msg.y, msg.z]
+        self.currentLocalPosition = [msg.x, msg.y, msg.z]
     
     def globalPositionCallback(self, msg):
         self.currentPosition = [msg.lat, msg.lon, msg.alt]
@@ -276,15 +247,15 @@ class OffboardControl(Node):
         distanceToCoverX = x - self.previous_setpoint[0]
         distanceToCoverY = y - self.previous_setpoint[1]
         distanceToCoverZ = z - self.previous_setpoint[2]
-        if self.localPosition is not None:
-            distanceToCoverX = x - self.localPosition[0]
-            distanceToCoverY = y - self.localPosition[1]
-            distanceToCoverZ = z - self.localPosition[2]
+        if self.currentLocalPosition is not None:
+            distanceToCoverX = x - self.currentLocalPosition[0]
+            distanceToCoverY = y - self.currentLocalPosition[1]
+            distanceToCoverZ = z - self.currentLocalPosition[2]
 
         max_distance = max(abs(distanceToCoverX), abs(distanceToCoverY), abs(distanceToCoverZ))
-        if max_distance < 0.2 and self.processing_waypoint:
+        if max_distance < IN_WAYPOINT_THRESHOLD and self.processing_waypoint:
             self.onWaypointReached()
-        elif max_distance < 0.5 and self.processing_waypoint:
+        elif max_distance < NEAR_WAYPOINT_THRESHOLD and self.processing_waypoint:
             self.nearTicker += 1
             if self.nearTicker > 5:
                 self.get_logger().info('Ticks near this waypoint: %s' % self.nearTicker)
@@ -315,14 +286,6 @@ class OffboardControl(Node):
         msg.timestamp = self.get_clock().now().nanoseconds // 1000
         self.vehicle_command_publisher.publish(msg)
     
-    def publish_manual_control_setpoint(self):
-        msg = ManualControlSetpoint()
-        msg.roll = self.current_manual_control_setpoint[0]
-        msg.pitch = self.current_manual_control_setpoint[1]
-        msg.throttle = self.current_manual_control_setpoint[2]
-        msg.yaw = self.current_manual_control_setpoint[3]
-        msg.timestamp = self.get_clock().now().nanoseconds // 1000
-        self.manual_control_setpoint_publisher.publish(msg)
 
 def main(args=None):
     print("Starting offboard control node...")
