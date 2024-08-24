@@ -10,7 +10,6 @@ from stl import mesh
 
 from transformation.transform import Transform
 
-
 class MeshBase(ABC):
     def __init__(self, vertices, color):
         self.vertices = vertices
