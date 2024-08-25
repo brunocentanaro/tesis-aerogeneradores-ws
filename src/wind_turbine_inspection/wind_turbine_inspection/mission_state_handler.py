@@ -8,7 +8,6 @@ from wind_turbine_inspection.states.OrthogonalAlignmentState import OrthogonalAl
 from wind_turbine_inspection.states.ReturnHomeState import ReturnHomeState
 from wind_turbine_inspection.states.TakeoffState import TakeoffState
 
-
 class WindTurbineInspectionStateMachine(Node):
     def __init__(self):
         super().__init__('inspection_state_machine')

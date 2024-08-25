@@ -88,6 +88,13 @@ class OffboardControl(Node):
             self.startTakeoffProcedure,
             10
         )
+        
+        self.moveCenteredSubscription = self.create_subscription(
+            String,
+            'move_centered',
+            self.moveCenteredCallback,
+            10
+        )
 
         self.offboard_control_mode_publisher = self.create_publisher(OffboardControlMode, '/fmu/in/offboard_control_mode', 10)
         self.trajectory_setpoint_publisher = self.create_publisher(TrajectorySetpoint, '/fmu/in/trajectory_setpoint', 10)
@@ -125,6 +132,26 @@ class OffboardControl(Node):
             self.wayPointsStack.append((x,y,z,yaw, f"{latitude},{longitude},{altitude}"))
         except ValueError:
             self.get_logger().error('Invalid waypoint format. Expected format: "latitude,longitude,altitude"')
+
+    def moveCenteredCallback(self, msg):
+        self.get_logger().info('Received: "%s"' % msg.data)
+        try:
+            distanceToWindTurbine = 20
+            degrees = 30
+            for i in range(degrees):
+                x = distanceToWindTurbine  - distanceToWindTurbine * math.cos(math.radians(i))
+                y = distanceToWindTurbine * math.sin(math.radians(i))
+                yawLookingToWindTurbine = math.radians(i)
+                self.wayPointsStack.append((x, y, 0, yawLookingToWindTurbine, EMPTY_MESSAGE))
+            lastWaypoint = self.wayPointsStack[-1]
+            self.wayPointsStack[-1] = (lastWaypoint[0], lastWaypoint[1], lastWaypoint[2], lastWaypoint[3], 'centered')
+        except ValueError:
+            self.get_logger().error('error')
+
+
+
+
+
 
     def timer_callback(self):
         if self.shouldArmAndTakeoff:
