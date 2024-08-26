@@ -91,8 +91,8 @@ class OffboardControl(Node):
         
         self.moveCenteredSubscription = self.create_subscription(
             String,
-            'move_centered',
-            self.moveCenteredCallback,
+            'rotate_keeping_center',
+            self.rotateKeepingCenter,
             10
         )
 
@@ -133,7 +133,7 @@ class OffboardControl(Node):
         except ValueError:
             self.get_logger().error('Invalid waypoint format. Expected format: "latitude,longitude,altitude"')
 
-    def moveCenteredCallback(self, msg):
+    def rotateKeepingCenter(self, msg):
         self.get_logger().info('Received: "%s"' % msg.data)
         try:
             distanceToWindTurbine = 20
@@ -141,7 +141,7 @@ class OffboardControl(Node):
             for i in range(degrees):
                 x = distanceToWindTurbine  - distanceToWindTurbine * math.cos(math.radians(i))
                 y = distanceToWindTurbine * math.sin(math.radians(i))
-                yawLookingToWindTurbine = math.radians(i)
+                yawLookingToWindTurbine = -math.radians(i)
                 self.wayPointsStack.append((x, y, 0, yawLookingToWindTurbine, EMPTY_MESSAGE))
             lastWaypoint = self.wayPointsStack[-1]
             self.wayPointsStack[-1] = (lastWaypoint[0], lastWaypoint[1], lastWaypoint[2], lastWaypoint[3], 'centered')

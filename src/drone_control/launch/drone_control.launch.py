@@ -10,6 +10,7 @@ def generate_launch_description():
             name='control',
             # prefix='gnome-terminal --',
             # output='screen'
+            namespace="drone_control"
         ),
     ])
 
