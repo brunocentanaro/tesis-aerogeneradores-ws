@@ -8,8 +8,9 @@ def generate_launch_description():
             package='drone_control',
             executable='control',
             name='control',
-            prefix='gnome-terminal --',
-            output='screen'
+            # prefix='gnome-terminal --',
+            # output='screen'
+            namespace="drone_control"
         ),
     ])
 

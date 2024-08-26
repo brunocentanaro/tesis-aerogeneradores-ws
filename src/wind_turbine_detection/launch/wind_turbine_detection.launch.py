@@ -9,6 +9,7 @@ def generate_launch_description():
             package='wind_turbine_detection',
             executable='image_subscriber',
             name='image_subscriber',
+            prefix='gnome-terminal --',
             output='screen'
         ),
         Node(
