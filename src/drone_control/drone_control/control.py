@@ -148,11 +148,6 @@ class OffboardControl(Node):
         except ValueError:
             self.get_logger().error('error')
 
-
-
-
-
-
     def timer_callback(self):
         if self.shouldArmAndTakeoff:
             self.publish_vehicle_command(VehicleCommand.VEHICLE_CMD_DO_SET_MODE, 1.0, 6.0)
@@ -297,8 +292,8 @@ class OffboardControl(Node):
             self.processing_waypoint = False
             self.nearTicker = 0
             if (self.onWaypointReachedMessage and self.onWaypointReachedMessage != EMPTY_MESSAGE):
-                self.onWaypointReachedMessage = EMPTY_MESSAGE
                 self.waypointReachedPublisher.publish(String(data=self.onWaypointReachedMessage))
+                self.onWaypointReachedMessage = EMPTY_MESSAGE
 
     def publish_vehicle_command(self, command, param1=0.0, param2=0.0):
         msg = VehicleCommand()
