@@ -3,29 +3,29 @@
   <model name="NuevoMolino">
     <static>true</static>
     <link name="link">
-    
+
       <collision name="collision">
         <geometry>
           <mesh>
-            <scale>0.00005 0.00005 0.00005</scale>
+            <scale>0.00035 0.00035 0.00035</scale>
             <uri>model://NuevoMolino/meshes/NuevoMolino.STL</uri>
           </mesh>
         </geometry>
       </collision>
-      
+
       <visual name="visual">
              <cast_shadows>true</cast_shadows>
-      
+
         <geometry>
           <mesh>
-            <scale>0.00005 0.00005 0.00005</scale>
+            <scale>0.00035 0.00035 0.00035</scale>
             <uri>model://NuevoMolino/meshes/NuevoMolino.STL</uri>
-          </mesh> 
+          </mesh>
         </geometry>
         <material>
            <diffuse>1 1 1 1</diffuse>
         </material>
-        
+
       </visual>
     <inertial>
       <mass>1.2</mass>
@@ -38,8 +38,8 @@
         <iyz>0</iyz>
       </inertia>
     </inertial>
-      
-      
+
+
     </link>
   </model>
 </sdf>
