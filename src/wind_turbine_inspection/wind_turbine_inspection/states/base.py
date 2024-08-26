@@ -20,7 +20,7 @@ class InspectionState(ABC, Node):
         super().__init__(node_name)
         self.name = name
         self.state_machine = state_machine
-        self.subscriber = self.create_subscription(String, 'waypoint_reached', self.waypoint_reached_callback, 10)
+        self.subscriber = self.create_subscription(String, '/drone_control/waypoint_reached', self.waypoint_reached_callback, 10)
 
     @abstractmethod
     def waypoint_reached_callback(self, msg):

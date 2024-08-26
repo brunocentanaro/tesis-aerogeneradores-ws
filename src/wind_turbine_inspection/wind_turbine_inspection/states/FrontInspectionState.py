@@ -8,7 +8,7 @@ class FrontInspectionState(InspectionState):
         windTurbineId = self.shared_state['mission_param']
         windTurbineBladeLength = windTurbineTypeAndLocation[windTurbineId]['bladeLength']
 
-        self.startInspectionPublisher = self.create_publisher(String, 'inspect_wind_turbine', 10)
+        self.startInspectionPublisher = self.create_publisher(String, '/drone_control/inspect_wind_turbine', 10)
         self.startInspectionPublisher.publish(String(data=f"{windTurbineBladeLength}"))
 
     def waypoint_reached_callback(self, msg):
