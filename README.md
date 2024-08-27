@@ -37,6 +37,25 @@ Tools/simulation/gz/models
 Y los mundos
 Tools/simulation/gz/worlds
 
+En Tools/simulation/gz/models/OakD-Lite/model.sdf
+Modificar donde dice
+
+```
+<clip>
+    <near>0.1</near>
+    <far>100</far>
+</clip>
+```
+
+por
+
+```
+<clip>
+    <near>0.1</near>
+    <far>150</far>
+</clip>
+```
+
 ### Compilar
 
 #### Si estamos corriendo por primera vez:
