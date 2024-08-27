@@ -136,8 +136,7 @@ class OffboardControl(Node):
     def rotateKeepingCenter(self, msg):
         self.get_logger().info('Received: "%s"' % msg.data)
         try:
-            distanceToWindTurbine = 20
-            degrees = 30
+            degrees, distanceToWindTurbine = map(float, msg.data.split(','))
             for i in range(degrees):
                 x = distanceToWindTurbine  - distanceToWindTurbine * math.cos(math.radians(i))
                 y = distanceToWindTurbine * math.sin(math.radians(i))
