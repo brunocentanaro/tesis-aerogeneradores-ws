@@ -11,7 +11,7 @@ class ApproachState(InspectionState):
         self.get_logger().info('Publishing waypoint')
         newCoord = windTurbineTypeAndLocation[mission_param]['coordinates']
         height = windTurbineTypeAndLocation[mission_param]['height']
-        self.publish_waypoint(f"{newCoord['latitude']},{newCoord['longitude']},{height}") 
+        self.publish_waypoint(f"{newCoord['latitude']},{newCoord['longitude']}") 
 
     def publish_waypoint(self, waypoint):
         msg = String()
