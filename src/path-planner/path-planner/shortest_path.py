@@ -187,68 +187,26 @@ def solve_tsp(start_node, points, edges):
 
 def grouping(obj):
     centers = obj.center
-    normals = obj.normals
+    number_of_groups = 3
+    lowest_amount_of_triangles = centers.shape[0] / number_of_groups
 
-    # Diccionario de normales como key y como valor array que contiene a todos los centros del triangulo con esa normal
-    grp = {}
-    string_to_normal = {}
-    for i, n in enumerate(normals):
-        n += np.zeros(3)
-        n = np.round(n, 2)
-        if str(n) not in grp:
-            grp[str(n)] = []
-            string_to_normal[str(n)] = n
-        grp[str(n)].append(centers[i])
+    clf = KMeansConstrained(
+        n_clusters=int(number_of_groups),
+        size_min=lowest_amount_of_triangles,
+        size_max=lowest_amount_of_triangles,
+        random_state=0
+    )
+    clf.fit_predict(centers)
 
-    # Array de duplas (normal, [centros con esa normal])
-    grps = []
-    # Minima cantidad de centros contenidos en un array que sea valor del diccionario grp
-    lowest_amount_of_triangles = float('inf')
-    for k, g in grp.items():
-        #print("NUMERO: " + k + str(len(g)))
-        if len(g) < lowest_amount_of_triangles:
-            lowest_amount_of_triangles = len(g)
-    for k, g in grp.items():
-        if len(g) == lowest_amount_of_triangles:
-            # The groups pointing up
-            # En realidad tienen la misma cantidad de los que apuntan para el costado, pero los que apuntan para el costado le agregan uno mas en la parte de abajo, entonces los que apuntan para arriba son los mas chicos 
-            grps.append((string_to_normal[k], g))
-        elif len(g) == lowest_amount_of_triangles + 1:
-            # the end of the turbines
-            # Find the longest dist to between nodes:
-            distance = np.full((len(g), len(g)), float("inf"))
-            for i in range(len(g)):
-                for j in range(i + 1, len(g)):
-                    d = dist(g[i], g[j])
-                    distance[i, j] = d
-                    distance[j, i] = d
-            # este es el que agregan los que apuntan para los costados, lo agregan al grouping pero separados del resto
-            outlier_index = np.min(distance, axis=0).argmax()
-            grps.append((string_to_normal[k], [g[outlier_index]]))
-            del g[outlier_index]
-            grps.append((string_to_normal[k], g))
-        else:
-            # estos serian los que faltan, que son los que apuntan para adelante y para atras
-            number_of_groups = len(g) / lowest_amount_of_triangles
-            # number_of_groups va a ser igual a 3, pq lowest_amount_of_triangles va a ser los que se necesitan para el lado de arriba de una pala, y los que van para adelante (y para atras) son 3 lados de pala
-            np_g = np.array(g)
-            clf = KMeansConstrained(
-                n_clusters=int(number_of_groups),
-                size_min=lowest_amount_of_triangles,
-                size_max=lowest_amount_of_triangles,
-                random_state=0
-            )
-            clf.fit_predict(np_g)
-
-            for i in range(int(number_of_groups)):
-                sub_grp = []
-                for node_index, label in enumerate(clf.labels_):
-                    if label == i:
-                        sub_grp.append(g[node_index])
-                grps.append((string_to_normal[k], sub_grp))
-
-            debug = 0
-    return grps
+    result = []
+    for i in range(int(number_of_groups)):
+        sub_grp = []
+        for node_index, label in enumerate(clf.labels_):
+            if label == i:
+                sub_grp.append(g[node_index])
+        result.append(sub_grp)
+    debug = 0
+    return result
 
 def get_full_order(m, test_order, dist, points_str, points_to_sections, start_node=None):
     resulting_points = []
