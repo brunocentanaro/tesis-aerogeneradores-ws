@@ -9,6 +9,7 @@ from ultralytics import YOLO
 import os
 from ament_index_python.packages import get_package_share_directory
 from itertools import combinations
+from std_msgs.msg import String
 
 package_share_directory = get_package_share_directory('wind_turbine_detection')
 model_path = os.path.join(package_share_directory, 'resource', 'yolov8n.pt')
@@ -27,6 +28,7 @@ class ImageSubscriber(Node):
             10)
         self.subscription
         self.br = CvBridge()
+        self.angleToRotatePublisher = self.create_publisher(String, 'angle_to_rotate', 10)
         # print(model.names)
         # print(modelNotTurbine.names)
    
@@ -103,6 +105,9 @@ class ImageSubscriber(Node):
                 cv2.circle(img3, (x, y), 5, (0, 0, 255), -1) # PUNTOS INTERSECCION ROJO
 
             cv2.imshow('Y Inverted Shape', img3)
+
+            angle_to_rotate = determine_direction(y_inverted_found)
+            self.angleToRotatePublisher.publish(String(data=f"{angle_to_rotate}"))
         else:
             print("No 'Y' inverted shape found")
 
@@ -301,6 +306,34 @@ def find_line_intersection(line1, line2, tolerance=0.1):
     y = det(d, ydiff) / div
 
     return (int(x), int(y))
+
+def determine_direction(lines):
+    vertical_edge = None
+    left_edge = None
+    right_edge = None
+    for line in lines:
+        m = slope(line)
+        if slope == float('inf'):
+            vertical_line = line
+        elif slope > 0:
+            left_edge = line
+        else:
+            right_edge = line
+
+    vertical_m = slope(vertical_edge)
+    left_m = slope(left_edge)
+    right_m = slope(right_edge)
+
+    left_angle = calculate_angle_between_lines(left_m, vertical_m)
+    right_angle = calculate_angle_between_lines(vertical_m, right_m)
+    botton_angle = calculate_angle_between_lines(left_m, right_m)
+
+    if (left_angle < 120):
+        return (120 - left_angle) # degree positivo, gira en sentido antihorario
+    elif (left_angle > 120):
+        return (left_angle - 120) # degree negativo, gira en sentido horario
+    else:
+        return 0 # no me debo mover
 
 def main(args=None):
     rclpy.init(args=args)
