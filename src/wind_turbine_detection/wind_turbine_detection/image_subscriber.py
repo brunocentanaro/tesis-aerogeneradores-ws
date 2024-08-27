@@ -33,7 +33,6 @@ class ImageSubscriber(Node):
         # print(modelNotTurbine.names)
    
     def listener_callback(self, data):
-        self.get_logger().info('Receiving video frame')
         current_frame = self.br.imgmsg_to_cv2(data, desired_encoding="bgr8")
         image = current_frame
 
@@ -76,6 +75,9 @@ class ImageSubscriber(Node):
             maxLineGap=25 # Max allowed gap between points on the same line to link them
         )
 
+        if lines is None:
+            return
+        
         for line in lines:
             x1, y1, x2, y2 = line[0]
             cv2.line(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
@@ -104,12 +106,17 @@ class ImageSubscriber(Node):
             for (x, y) in intersections:
                 cv2.circle(img3, (x, y), 5, (0, 0, 255), -1) # PUNTOS INTERSECCION ROJO
 
+            self.get_logger().info(f"Y Inverted Shape found")
             cv2.imshow('Y Inverted Shape', img3)
 
             angle_to_rotate = determine_direction(y_inverted_found)
+            if angle_to_rotate is None:
+                self.get_logger().info(f"Angle to rotate is None")
+                return
+            self.get_logger().info(f"Angle to rotate: {angle_to_rotate}")
             self.angleToRotatePublisher.publish(String(data=f"{angle_to_rotate}"))
         else:
-            print("No 'Y' inverted shape found")
+            self.get_logger().info(f"No Y inverted shape found")
 
         vertical_lines = []
         horizontal_lines = []
@@ -313,12 +320,15 @@ def determine_direction(lines):
     right_edge = None
     for line in lines:
         m = slope(line)
-        if slope == float('inf'):
-            vertical_line = line
-        elif slope > 0:
+        if m == float('inf'):
+            vertical_edge = line
+        elif m  > 0:
             left_edge = line
         else:
             right_edge = line
+
+    if vertical_edge is None or left_edge is None or right_edge is None:
+        return None
 
     vertical_m = slope(vertical_edge)
     left_m = slope(left_edge)
