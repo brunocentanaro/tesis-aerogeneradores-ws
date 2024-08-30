@@ -106,17 +106,12 @@ class ImageSubscriber(Node):
             for (x, y) in intersections:
                 cv2.circle(img3, (x, y), 5, (0, 0, 255), -1) # PUNTOS INTERSECCION ROJO
 
-            self.get_logger().info(f"Y Inverted Shape found")
             cv2.imshow('Y Inverted Shape', img3)
 
             angle_to_rotate = determine_direction(y_inverted_found)
             if angle_to_rotate is None:
-                self.get_logger().info(f"Angle to rotate is None")
                 return
-            self.get_logger().info(f"Angle to rotate: {angle_to_rotate}")
             self.angleToRotatePublisher.publish(String(data=f"{angle_to_rotate}"))
-        else:
-            self.get_logger().info(f"No Y inverted shape found")
 
         vertical_lines = []
         horizontal_lines = []
@@ -127,6 +122,9 @@ class ImageSubscriber(Node):
                 x1, y1, x2, y2 = line[0]
                 if is_vertical(x1, y1, x2, y2):
                     vertical_lines.append(line)
+                    percentageInImage = (x1 + x2) / 2 / img.shape[1]
+                    fieldOfView = 1.204 * 180 / math.pi
+                    self.get_logger().info(f'should rotate {percentageInImage * fieldOfView - fieldOfView / 2} degrees')
                 elif is_horizontal(x1, y1, x2, y2):
                     horizontal_lines.append(line)
                 else:
