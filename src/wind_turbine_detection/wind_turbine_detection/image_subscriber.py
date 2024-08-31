@@ -18,6 +18,8 @@ model_not_turbine_path = os.path.join(package_share_directory, 'resource', 'yolo
 model = YOLO(model_path)
 modelNotTurbine = YOLO(model_not_turbine_path)
 
+CAMERA_FOV = 1.204 # radianes
+
 class ImageSubscriber(Node):
     def __init__(self):
         super().__init__('image_subscriber')
@@ -115,7 +117,7 @@ class ImageSubscriber(Node):
                 intersectionsAverageY = intersectionsAverageY / len(intersections) / img.shape[0]
                 cv2.circle(img3, (int(intersectionsAverageX), int(intersectionsAverageY)), 5, (255, 0, 0), -1)
                 percentageInImage = (x1 + x2) / 2 / img.shape[1]
-                fieldOfView = 1.204 * 180 / math.pi
+                fieldOfView = math.degrees(CAMERA_FOV)
                 self.angleToHaveWTCenteredOnImagePublisher.publish(String(data=f"{percentageInImage * fieldOfView - fieldOfView / 2},{intersectionsAverageY}"))
 
             cv2.imshow('Y Inverted Shape', img3)
