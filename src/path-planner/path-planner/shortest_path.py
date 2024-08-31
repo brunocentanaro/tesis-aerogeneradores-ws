@@ -41,9 +41,6 @@ class Section:
             return self.p1
         return self.p2
     
-def get_random_color():
-    return (np.random.uniform(0.1, 0.9), np.random.uniform(0.1, 0.9), np.random.uniform(0.1, 0.9))
-
 def midpoint(p1, p2):
     return (p1 + p2) / 2
 
@@ -52,16 +49,13 @@ def dist(p_to, p_from=np.array([0, 0, 0])):
     return np.linalg.norm(v)
 
 def shortest_path(start_node, sections: List[Section], multiplier=10):
-    points_to_sections = {}
     points = []
-    points_str = []
+    #points_to_sections = {}
     for s in sections:
-        points_to_sections[s.p1_str] = s
-        points_to_sections[s.p2_str] = s
         points.append(s.p1)
-        points_str.append(s.p1_str)
         points.append(s.p2)
-        points_str.append(s.p2_str)
+        #points_to_sections[s.p1_str] = s
+        #points_to_sections[s.p2_str] = s
     edges = np.zeros((len(points), len(points)))
     for i, p in enumerate(points):
         for j in range(i + 1, len(points)):
@@ -78,7 +72,6 @@ def shortest_path(start_node, sections: List[Section], multiplier=10):
     best_order, best_dist = solve_tsp(start_node, points, edges)
     print("Done")
     print(f"Best: order={str(best_order)}, dist={best_dist}")
-    get_full_order(0, best_order, best_dist, points_str, points_to_sections)
     return np.array(points)[best_order]
 
 def solve_tsp(start_node, points, edges):
@@ -97,9 +90,9 @@ def solve_tsp(start_node, points, edges):
     routing.SetArcCostEvaluatorOfAllVehicles(transit_callback_index)
 
     search_parameters = pywrapcp.DefaultRoutingSearchParameters()
-    search_parameters.local_search_metaheuristic = (
-        routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH)
-    search_parameters.time_limit.seconds = 5
+    search_parameters.first_solution_strategy = (
+        routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC
+    )
     solution = routing.SolveWithParameters(search_parameters)
     
     if solution:
@@ -113,7 +106,6 @@ def solve_tsp(start_node, points, edges):
             route_distance += routing.GetArcCostForVehicle(previous_index, index, 0)
         route.append(manager.IndexToNode(index))
         
-        # Elimino el start_node de la solucion
         route = np.array(route)
         route_non_zero = route[route != 0]
         route_adjusted = route_non_zero - 1
@@ -144,19 +136,16 @@ def grouping(obj):
     debug = 0
     return result
 
-def get_full_order(m, test_order, dist, points_str, points_to_sections, start_node=None):
+def plot_best_order(start_node, points):
     resulting_points = []
     if start_node is not None:
-        resulting_points.append(([start_node], get_random_color()))
-        print(test_order)
-    for index in test_order:
-        p_str = points_str[index]
-        section = points_to_sections[p_str]
-        resulting_points.append(([section.get_point_from_str(p_str)], get_color_test(index)))
-    plot_data_color_connected(resulting_points, f"m_{m}_d_{dist}_o_{str(test_order)}", dpi=300)
+        resulting_points.append(([start_node], (173/255, 216/255, 230/255)))
+    for i, point in enumerate(points):
+        resulting_points.append(([point], get_color_test(i)))
+    plot_data_color_connected(resulting_points, "order", dpi=300)
     debug = 0
 
-def get_color_test(index, max_index=22):    
+def get_color_test(index, max_index=5):    
     normalized_index = min(max(index / max_index, 0), 1)
     red = int(255 * (1 - normalized_index))
     green = 0
@@ -229,8 +218,9 @@ if __name__ == '__main__':
     for i, g in enumerate(gps):
         sections.append(Section(g))
 
-    start_node = np.array([0, 30, 30])
+    start_node = np.array([0, -30, 30])
     traj = shortest_path(start_node, sections, multiplier=10)
+    plot_best_order(start_node, traj)
     plot_points(traj)
     save_traj(f"p162", traj)
     debug = 0
