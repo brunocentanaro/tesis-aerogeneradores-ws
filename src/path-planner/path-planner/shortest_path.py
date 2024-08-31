@@ -1,20 +1,11 @@
-import json
-import random
-import time
-from pathlib import Path
-
 import numpy as np
 from collections import Counter
 from ortools.constraint_solver import routing_enums_pb2, pywrapcp
 from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
-from scipy.spatial.transform import Rotation
 from typing import List
 
-from objects.mesh_base import Wireframe, unit_vector
-from polynomial_fitting import plot_data
-from transformation.transform import TRotation, Transform
-from utils.folder import get_project_root
+from objects.mesh_base import Wireframe
 from k_means_constrained import KMeansConstrained
 
 cache = {}
@@ -24,37 +15,21 @@ use_cache = True
 class Section:
     def __init__(self, points):
         self.points = np.array(points)
-        self.normal = np.array([0,1,0])
         
-        coordenadas_x = points[:, 0]
-        conteo_x = Counter(coordenadas_x)
-        hay_dos_iguales = any(conteo == 2 for conteo in conteo_x.values())
-        if hay_dos_iguales:
+        conteo_x = Counter(self.points[:, 0])
+        print(conteo_x)
+        if any(conteo >= 2 for conteo in conteo_x.values()):
             indices = np.argsort(self.points[:, 2])
         else:
             indices = np.argsort(self.points[:, 0])
         self.points = self.points[indices]
         self.p1 = midpoint(self.points[0], self.points[1])  # lowest point (no need to sort)
         self.p2 = midpoint(self.points[-1], self.points[-2])  # highest point (need to reorder list)
-        self.length = dist(self.p1, self.p2)
         self.p1_str = str(self.p1)
         self.p2_str = str(self.p2)
 
-    def get_other_end(self, p):
-        if np.all(np.isclose(p, self.p1)):
-            return self.p2
-        return self.p1
-
-    def get_other_end_str(self, p_str: str) -> str:
-        if p_str == self.p1_str:
-            return self.p2_str
-        return self.p1_str
-
     def scale_using_normal(self, multiplier):
-        n = self.normal * np.array([1, 1, 0])
-        n = unit_vector(n)
-        p = self.points + n * multiplier
-        return Section(p, self.normal, self.color)
+        return Section(self.points + np.array([0,1,0]) * multiplier)
 
     def get_ordered_points(self, p_str):
         if p_str == self.p1_str:
@@ -65,10 +40,6 @@ class Section:
         if p_str == self.p1_str:
             return self.p1
         return self.p2
-    
-    def get_ordered_points_and_index(self, p_str):
-        ps = self.get_ordered_points(p_str)
-        return ps, 1 if self.is_one_point_section else 2
     
 def get_random_color():
     return (np.random.uniform(0.1, 0.9), np.random.uniform(0.1, 0.9), np.random.uniform(0.1, 0.9))
@@ -108,7 +79,7 @@ def shortest_path(start_node, sections: List[Section], multiplier=10):
     print("Done")
     print(f"Best: order={str(best_order)}, dist={best_dist}")
     get_full_order(0, best_order, best_dist, points_str, points_to_sections)
-    return np.array(points)[best_order], np.array(normals)[best_order]
+    return np.array(points)[best_order]
 
 def solve_tsp(start_node, points, edges):
     modifiedPoints = points.copy()
@@ -151,9 +122,9 @@ def solve_tsp(start_node, points, edges):
         return None, None
 
 def grouping(obj):
-    centers = obj.center
+    vertices = obj.center
     number_of_groups = 3
-    lowest_amount_of_triangles = centers.shape[0] / number_of_groups
+    lowest_amount_of_triangles = vertices.shape[0] / number_of_groups
 
     clf = KMeansConstrained(
         n_clusters=int(number_of_groups),
@@ -161,14 +132,14 @@ def grouping(obj):
         size_max=lowest_amount_of_triangles,
         random_state=0
     )
-    clf.fit_predict(centers)
+    clf.fit_predict(vertices)
 
     result = []
     for i in range(int(number_of_groups)):
         sub_grp = []
         for node_index, label in enumerate(clf.labels_):
             if label == i:
-                sub_grp.append(g[node_index])
+                sub_grp.append(vertices[node_index])
         result.append(sub_grp)
     debug = 0
     return result
@@ -185,8 +156,14 @@ def get_full_order(m, test_order, dist, points_str, points_to_sections, start_no
     plot_data_color_connected(resulting_points, f"m_{m}_d_{dist}_o_{str(test_order)}", dpi=300)
     debug = 0
 
+def get_color_test(index, max_index=22):    
+    normalized_index = min(max(index / max_index, 0), 1)
+    red = int(255 * (1 - normalized_index))
+    green = 0
+    blue = 0
+    return (red / 255, green / 255, blue / 255)
+
 def plot_data_color_connected(data, title, save=False, show=True, dpi=600):
-    # now lets plot it!
     plt.clf()
     fig = plt.figure(dpi=dpi)
     try:
@@ -208,19 +185,20 @@ def plot_data_color_connected(data, title, save=False, show=True, dpi=600):
         ax.plot(d[0], d[1], d[2], lw=2, c=color)
         last_point = [[d[0, -1]], [d[1, -1]], [d[2, -1]]]
     ax.legend()
-    # plt.xlim(-50, -110)
     plt.savefig(f'data/fig/{title}_plot.png')
     if show:
         plt.show()
         plt.clf()
     return ax
 
-def get_color_test(index, max_index=22):    
-    normalized_index = min(max(index / max_index, 0), 1)
-    red = int(255 * (1 - normalized_index))
-    green = 0
-    blue = 0
-    return (red / 255, green / 255, blue / 255)
+def plot_points(points):
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    ax.scatter(points[:, 0], points[:, 1], points[:, 2], c='r', marker='o')
+    ax.set_xlabel('Eje X')
+    ax.set_ylabel('Eje Y')
+    ax.set_zlabel('Eje Z')
+    plt.show()
 
 def writefile(filename, data):
     with open(filename, 'w') as file:
@@ -238,9 +216,6 @@ def save_traj(filename, traj):
     writefile(f"data/out/{filename}_z.txt", data[2])
 
 if __name__ == '__main__':
-    seed = 21
-    np.random.seed(seed)
-    random.seed(seed)
     wt = Wireframe.from_stl_path('stl_gen/turbine.stl')
     # matriz de rotacion sobre su propio eje (intrinseca) en el eje Z
 #    r = Rotation.from_euler("XYZ", [0, 0, 90], degrees=True).as_matrix() 
@@ -254,9 +229,8 @@ if __name__ == '__main__':
     for i, g in enumerate(gps):
         sections.append(Section(g))
 
-    start_node = np.array([0, -30, 30])
-    traj, normals = shortest_path(start_node, sections, multiplier=10)
+    start_node = np.array([0, 30, 30])
+    traj = shortest_path(start_node, sections, multiplier=10)
+    plot_points(traj)
     save_traj(f"p162", traj)
-    save_traj(f"n162", normals)
-
     debug = 0
