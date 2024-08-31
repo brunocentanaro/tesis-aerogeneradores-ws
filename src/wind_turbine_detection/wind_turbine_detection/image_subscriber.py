@@ -28,7 +28,8 @@ class ImageSubscriber(Node):
             10)
         self.subscription
         self.br = CvBridge()
-        self.angleToRotatePublisher = self.create_publisher(String, 'angle_to_rotate', 10)
+        self.angleToRotatePublisher = self.create_publisher(String, 'angle_to_rotate_centered_on_wt', 10)
+        self.angleToHaveWTCenteredOnImagePublisher = self.create_publisher(String, 'angle_to_have_wt_centered_on_image', 10)
         # print(model.names)
         # print(modelNotTurbine.names)
    
@@ -84,7 +85,7 @@ class ImageSubscriber(Node):
         cv2.imshow('All detected lines', img)
 
         # Find configurations of lines that form a 'Y' inverted shape
-        y_inverted_found = y_inverted(lines)
+        y_inverted_found, verticalLine = y_inverted(lines)
 
         # Draw the detected lines on the image
         if y_inverted_found:
@@ -108,10 +109,15 @@ class ImageSubscriber(Node):
 
             cv2.imshow('Y Inverted Shape', img3)
 
-            angle_to_rotate = determine_direction(y_inverted_found)
-            if angle_to_rotate is None:
+            angle_to_rotate_centered_on_wt = determine_direction(y_inverted_found)
+            if verticalLine is not None:
+                x1, _, x2, _ = verticalLine[0]
+                percentageInImage = (x1 + x2) / 2 / img.shape[1]
+                fieldOfView = 1.204 * 180 / math.pi
+                self.angleToHaveWTCenteredOnImagePublisher.publish(String(data=f"{percentageInImage * fieldOfView - fieldOfView / 2}"))
+            if angle_to_rotate_centered_on_wt is None:
                 return
-            self.angleToRotatePublisher.publish(String(data=f"{angle_to_rotate}"))
+            self.angleToRotatePublisher.publish(String(data=f"{angle_to_rotate_centered_on_wt}"))
 
         vertical_lines = []
         horizontal_lines = []
@@ -122,9 +128,6 @@ class ImageSubscriber(Node):
                 x1, y1, x2, y2 = line[0]
                 if is_vertical(x1, y1, x2, y2):
                     vertical_lines.append(line)
-                    percentageInImage = (x1 + x2) / 2 / img.shape[1]
-                    fieldOfView = 1.204 * 180 / math.pi
-                    self.get_logger().info(f'should rotate {percentageInImage * fieldOfView - fieldOfView / 2} degrees')
                 elif is_horizontal(x1, y1, x2, y2):
                     horizontal_lines.append(line)
                 else:
@@ -268,6 +271,7 @@ def are_lines_about_120_degrees(m1, m2, margin_of_error=15):
 def y_inverted(lines):
     highest = None
     highest_y = float('inf')
+    vertical_line = None
 
     for comb in combinations(lines, 3):
         line1, line2, line3 = comb
@@ -277,7 +281,6 @@ def y_inverted(lines):
         angle31 = are_lines_about_120_degrees(slope(line3), slope(line1))
 
         if angle12 and angle23 and angle31:
-            vertical_line = None
             for line in (line1, line2, line3):
                 if slope(line) == float('inf'):
                     vertical_line = line
@@ -289,7 +292,7 @@ def y_inverted(lines):
                 if y_max_vertical < highest_y:
                     highest = (line1, line2, line3)
                     highest_y = y_max_vertical
-    return highest
+    return highest, vertical_line
 
 # Encuentra la intersección entre dos líneas representadas por (x1, y1, x2, y2)
 def find_line_intersection(line1, line2, tolerance=0.1):

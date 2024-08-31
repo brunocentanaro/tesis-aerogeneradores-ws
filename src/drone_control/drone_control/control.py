@@ -161,6 +161,9 @@ class OffboardControl(Node):
             degrees = float(msg.data)
             stepsPerDegree = 2
             previousYaw = 0
+            rangeToCover = math.floor(abs(degrees)) * stepsPerDegree
+            if rangeToCover == 0:
+                return
             for i in range(math.floor(abs(degrees)) * stepsPerDegree):
                 newYaw = math.radians(i) * (1 if degrees > 0 else -1) / stepsPerDegree
                 delta = newYaw - previousYaw
