@@ -103,18 +103,24 @@ class ImageSubscriber(Node):
                 x1, y1, x2, y2 = line[0]
                 cv2.line(img3, (x1, y1), (x2, y2), (0, 255, 0), 2) # LINEAS Y INVERTIDA VERDE
 
-            # Dibuja los puntos de intersección
+            intersectionsAverageX = 0
+            intersectionsAverageY = 0
             for (x, y) in intersections:
                 cv2.circle(img3, (x, y), 5, (0, 0, 255), -1) # PUNTOS INTERSECCION ROJO
+                intersectionsAverageX += x
+                intersectionsAverageY += y
+
+            if intersections:
+                intersectionsAverageX = intersectionsAverageX / len(intersections) / img.shape[1]
+                intersectionsAverageY = intersectionsAverageY / len(intersections) / img.shape[0]
+                cv2.circle(img3, (int(intersectionsAverageX), int(intersectionsAverageY)), 5, (255, 0, 0), -1)
+                percentageInImage = (x1 + x2) / 2 / img.shape[1]
+                fieldOfView = 1.204 * 180 / math.pi
+                self.angleToHaveWTCenteredOnImagePublisher.publish(String(data=f"{percentageInImage * fieldOfView - fieldOfView / 2},{intersectionsAverageY}"))
 
             cv2.imshow('Y Inverted Shape', img3)
 
             angle_to_rotate_centered_on_wt = determine_direction(y_inverted_found)
-            if verticalLine is not None:
-                x1, _, x2, _ = verticalLine[0]
-                percentageInImage = (x1 + x2) / 2 / img.shape[1]
-                fieldOfView = 1.204 * 180 / math.pi
-                self.angleToHaveWTCenteredOnImagePublisher.publish(String(data=f"{percentageInImage * fieldOfView - fieldOfView / 2}"))
             if angle_to_rotate_centered_on_wt is None:
                 return
             self.angleToRotatePublisher.publish(String(data=f"{angle_to_rotate_centered_on_wt}"))
