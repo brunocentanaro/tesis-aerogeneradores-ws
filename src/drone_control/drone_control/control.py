@@ -103,12 +103,28 @@ class OffboardControl(Node):
             10
         )
 
+        self.changeDroneHeight = self.create_subscription(
+            String,
+            'change_height',
+            self.changeDroneHeightCallback,
+            10
+        )
+
         self.offboard_control_mode_publisher = self.create_publisher(OffboardControlMode, '/fmu/in/offboard_control_mode', 10)
         self.trajectory_setpoint_publisher = self.create_publisher(TrajectorySetpoint, '/fmu/in/trajectory_setpoint', 10)
         self.vehicle_command_publisher = self.create_publisher(VehicleCommand, '/fmu/in/vehicle_command', 10)
         self.manual_control_setpoint_publisher = self.create_publisher(ManualControlSetpoint, '/fmu/in/manual_control_setpoint', 10)
         self.waypointReachedPublisher = self.create_publisher(String, 'waypoint_reached', 10)
 
+
+    def changeDroneHeightCallback(self, msg):
+        self.get_logger().info('Received: "%s"' % msg.data)
+        try:
+            height = float(msg.data)
+            self.wayPointsStack.append((0.0, 0.0, height, 0.0, 'change height'))
+        except ValueError:
+            self.get_logger().error('Invalid waypoint format. Expected format: "height"')
+            return
 
     def startTakeoffProcedure(self, msg):
         try:
