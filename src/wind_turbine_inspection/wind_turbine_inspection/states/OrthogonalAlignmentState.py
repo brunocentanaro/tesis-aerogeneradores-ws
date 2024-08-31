@@ -11,7 +11,17 @@ class OrthogonalAlignmentState(InspectionState):
 
     
     def angle_to_rotate_callback(self, msg):
-        self.get_logger().info(f"angle_to_rotate_callback received: {msg.data}")
+        data = msg.data.split(',')
+        
+        if len(data) == 2:
+            avg_dev = float(data[0])
+            orientation = data[1]
+            
+            self.get_logger().info(f"Received avg_dev: {avg_dev}")
+            self.get_logger().info(f"Received orientation: {orientation}")
+        else:
+            self.get_logger().error("Received data does not match expected format.")
+
         # if not self.rotating:
         #     self.rotating = True
         #     rotateMsg = String()
