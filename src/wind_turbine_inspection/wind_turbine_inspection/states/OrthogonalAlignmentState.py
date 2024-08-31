@@ -2,7 +2,10 @@ from wind_turbine_inspection.states.base import InspectionState, WindTurbineInsp
 from std_msgs.msg import String
 
 SHOULD_ROTATE_WITHOUT_MOVING_THRESHOLD = 10
-MIN_ANGLE_TO_ROTATE = 3
+MIN_ANGLE_TO_ROTATE = 2
+
+# TODO: Change this to lidar
+VERTICAL_SEEN_DISTANCE = 60
 class OrthogonalAlignmentState(InspectionState):
     def __init__(self, state_machine):
         super().__init__('orthogonal_alignment_state', WindTurbineInspectionStage.ORTHOGONAL_ALIGNMENT, state_machine)
@@ -37,9 +40,10 @@ class OrthogonalAlignmentState(InspectionState):
             lastFiveYPercAverage = sum(self.lastFivePercentagesInY) / len(self.lastFivePercentagesInY) if len(self.lastFivePercentagesInY) > 0 else 0
 
             if (abs(intersectionYPercentage - lastFiveYPercAverage) < 0.03):
-                if (abs(intersectionYPercentage - 0.5) > 0.03):
+                differenceInY = intersectionYPercentage - 0.5
+                if (abs(differenceInY) > 0.03):
                     changeHeightMsg = String()
-                    changeHeightMsg.data = f"{(intersectionYPercentage -0.5)*60}"
+                    changeHeightMsg.data = f"{(differenceInY)*VERTICAL_SEEN_DISTANCE}"
                     self.changeHeightPublisher.publish(changeHeightMsg)
                     self.rotatingWithoutMoving = True
                     return
