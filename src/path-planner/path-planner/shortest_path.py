@@ -48,7 +48,7 @@ def dist(p_to, p_from=np.array([0, 0, 0])):
     v = p_to - p_from
     return np.linalg.norm(v)
 
-def shortest_path(start_node, sections: List[Section], multiplier=10):
+def shortest_path(start_node, sections: List[Section]):
     points = []
     #points_to_sections = {}
     for s in sections:
@@ -219,7 +219,7 @@ if __name__ == '__main__':
         sections.append(Section(g))
 
     start_node = np.array([0, -30, 30])
-    traj = shortest_path(start_node, sections, multiplier=10)
+    traj = shortest_path(start_node, sections)
     plot_best_order(start_node, traj)
     plot_points(traj)
     save_traj(f"p162", traj)
