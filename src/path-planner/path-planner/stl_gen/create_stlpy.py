@@ -7,8 +7,8 @@ b_t = 0    # blade thickness
 t_c = 80 + b_w  # height from vertical blade base to the ground
 
 m_s = 1.5
-k = b_l / m_s
-num_points = int((b_l + 10) / m_s)
+facets_range = int(np.ceil(b_l / m_s))
+num_points = int(np.ceil((b_l + 10) / m_s))
 
 x = np.zeros((2000, 3))
 
@@ -28,7 +28,7 @@ with open("turbine.stl", "w") as myfile:
                             x[cc + 2 * k - 1][2] - m_s * np.sin(np.pi / 5)]
 
     # Genera las facetas para un lado
-    for k in range(k):
+    for k in range(facets_range):
         myfile.write("facet normal 0 1 0\n")
         myfile.write("outer loop\n")
         myfile.write(f"vertex {x[cc + 2 * k][0]} {x[cc + 2 * k][1]} {x[cc + 2 * k][2]}\n")
@@ -37,7 +37,7 @@ with open("turbine.stl", "w") as myfile:
         myfile.write("endloop\n")
         myfile.write("endfacet\n")
 
-    for k in range(k):
+    for k in range(facets_range):
         myfile.write("facet normal 0 1 0\n")
         myfile.write("outer loop\n")
         myfile.write(f"vertex {x[cc + 2 * k + 1][0]} {x[cc + 2 * k + 1][1]} {x[cc + 2 * k + 1][2]}\n")
@@ -59,7 +59,7 @@ with open("turbine.stl", "w") as myfile:
                              x[cc + 2 * k - 1][1],
                              x[cc + 2 * k - 1][2] - m_s * np.sin(np.pi / 5)]
 
-    for k in range(k):
+    for k in range(facets_range):
         myfile.write("facet normal 0 1 0\n")
         myfile.write("outer loop\n")
         myfile.write(f"vertex {x[cc + 2 * k][0]} {x[cc + 2 * k][1]} {x[cc + 2 * k][2]}\n")
@@ -68,7 +68,7 @@ with open("turbine.stl", "w") as myfile:
         myfile.write("endloop\n")
         myfile.write("endfacet\n")
 
-    for k in range(k):
+    for k in range(facets_range):
         myfile.write("facet normal 0 1 0\n")
         myfile.write("outer loop\n")
         myfile.write(f"vertex {x[cc + 2 * k + 1][0]} {x[cc + 2 * k + 1][1]} {x[cc + 2 * k + 1][2]}\n")
@@ -90,7 +90,7 @@ with open("turbine.stl", "w") as myfile:
                              x[cc + 2 * k - 1][1],
                              x[cc + 2 * k - 1][2] + m_s * np.sin(np.pi / 2)]
 
-    for k in range(k):
+    for k in range(facets_range):
         myfile.write("facet normal 0 1 0\n")
         myfile.write("outer loop\n")
         myfile.write(f"vertex {x[cc + 2 * k][0]} {x[cc + 2 * k][1]} {x[cc + 2 * k][2]}\n")
@@ -99,7 +99,7 @@ with open("turbine.stl", "w") as myfile:
         myfile.write("endloop\n")
         myfile.write("endfacet\n")
 
-    for k in range(k):
+    for k in range(facets_range):
         myfile.write("facet normal 0 1 0\n")
         myfile.write("outer loop\n")
         myfile.write(f"vertex {x[cc + 2 * k + 1][0]} {x[cc + 2 * k + 1][1]} {x[cc + 2 * k + 1][2]}\n")
