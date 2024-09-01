@@ -30,7 +30,6 @@ float t_c=80 + b_w;    // height from vertical blade base to the ground
 
 float x[2000][3];
 float m_s = 1.5;
-int k = b_l/m_s;
 
 int main()
 {
