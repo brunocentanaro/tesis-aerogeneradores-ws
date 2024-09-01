@@ -115,6 +115,7 @@ class OffboardControl(Node):
         self.vehicle_command_publisher = self.create_publisher(VehicleCommand, '/fmu/in/vehicle_command', 10)
         self.manual_control_setpoint_publisher = self.create_publisher(ManualControlSetpoint, '/fmu/in/manual_control_setpoint', 10)
         self.waypointReachedPublisher = self.create_publisher(String, 'waypoint_reached', 10)
+        self.currentHeading = 0.0
 
 
     def changeDroneHeightCallback(self, msg):
