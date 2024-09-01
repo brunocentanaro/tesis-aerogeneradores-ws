@@ -48,6 +48,14 @@ def dist(p_to, p_from=np.array([0, 0, 0])):
     v = p_to - p_from
     return np.linalg.norm(v)
 
+def shortest_path_from_stl(start_node, stl_name):
+    wt = Wireframe.from_stl_path('stl_gen/' + stl_name + '.stl')
+    gps = grouping(wt)
+    sections = []
+    for g in gps:
+        sections.append(Section(g))
+    return shortest_path(np.array(start_node), sections)
+
 def shortest_path(start_node, sections: List[Section]):
     points = []
     #points_to_sections = {}
