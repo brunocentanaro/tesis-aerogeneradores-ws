@@ -127,18 +127,17 @@ class OffboardControl(Node):
     def gpsWaypointCallback(self, msg):
         self.get_logger().info('Received: "%s"' % msg.data)
         try:
-            latitude, longitude, altitude = map(float, msg.data.split(','))
-            x,y,z,yaw = self.process_new_waypoint(latitude, longitude, altitude)
-            self.wayPointsStack.append((x,y,z,yaw, f"{latitude},{longitude},{altitude}"))
+            latitude, longitude = map(float, msg.data.split(','))
+            x,y,z,yaw = self.process_new_waypoint(latitude, longitude)
+            self.wayPointsStack.append((x,y,z,yaw, f"{latitude},{longitude},{z}"))
         except ValueError:
             self.get_logger().error('Invalid waypoint format. Expected format: "latitude,longitude,altitude"')
 
     def rotateKeepingCenter(self, msg):
         self.get_logger().info('Received: "%s"' % msg.data)
         try:
-            distanceToWindTurbine = 20
-            degrees = 30
-            for i in range(degrees):
+            degrees, distanceToWindTurbine = map(float, msg.data.split(','))
+            for i in range(math.floor(degrees)):
                 x = distanceToWindTurbine  - distanceToWindTurbine * math.cos(math.radians(i))
                 y = distanceToWindTurbine * math.sin(math.radians(i))
                 yawLookingToWindTurbine = -math.radians(i)
@@ -216,7 +215,7 @@ class OffboardControl(Node):
         except ValueError:
             self.get_logger().error('Invalid waypoint format. Expected format: "x,y,z"')
 
-    def process_new_waypoint(self, latitude, longitude, altitude):
+    def process_new_waypoint(self, latitude, longitude):
         if not self.currentPosition or not self.currentCOG:
             self.get_logger().error('No GPS data available')
             self.processing_waypoint = False
@@ -228,7 +227,7 @@ class OffboardControl(Node):
         )
         distanceForward = distance * math.cos(yaw)
         distanceRight = distance * math.sin(yaw)
-        return distanceForward, distanceRight, altitude - self.currentPosition[2], yaw
+        return distanceForward, distanceRight, 0, yaw
 
     def setNewSetpoint(self, x, y, z, yaw, message):
         self.previousYaw = self.currentYaw

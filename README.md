@@ -7,6 +7,12 @@
 - [Gazebo Garden](https://gazebosim.org/docs/garden/install)
 - [PX4](https://docs.px4.io/main/en/ros2/user_guide#installation-setup)
 
+Despues de clonar el repositorio de PX4:
+```
+git checkout f8a42bcd58
+git submodule update --init --recursive
+```
+
 ## Instrucciones
 
 ### Instalar QGroundControl
@@ -36,6 +42,25 @@ Tools/simulation/gz/models
 
 Y los mundos
 Tools/simulation/gz/worlds
+
+En Tools/simulation/gz/models/OakD-Lite/model.sdf
+Modificar donde dice
+
+```
+<clip>
+    <near>0.1</near>
+    <far>100</far>
+</clip>
+```
+
+por
+
+```
+<clip>
+    <near>0.1</near>
+    <far>150</far>
+</clip>
+```
 
 ### Compilar
 

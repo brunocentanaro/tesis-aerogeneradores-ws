@@ -9,6 +9,7 @@ from ultralytics import YOLO
 import os
 from ament_index_python.packages import get_package_share_directory
 from itertools import combinations
+from std_msgs.msg import String
 
 package_share_directory = get_package_share_directory('wind_turbine_detection')
 model_path = os.path.join(package_share_directory, 'resource', 'yolov8n.pt')
@@ -27,11 +28,11 @@ class ImageSubscriber(Node):
             10)
         self.subscription
         self.br = CvBridge()
+        self.angleToRotatePublisher = self.create_publisher(String, 'angle_to_rotate', 10)
         # print(model.names)
         # print(modelNotTurbine.names)
    
     def listener_callback(self, data):
-        self.get_logger().info('Receiving video frame')
         current_frame = self.br.imgmsg_to_cv2(data, desired_encoding="bgr8")
         image = current_frame
 
@@ -74,6 +75,9 @@ class ImageSubscriber(Node):
             maxLineGap=25 # Max allowed gap between points on the same line to link them
         )
 
+        if lines is None:
+            return
+        
         for line in lines:
             x1, y1, x2, y2 = line[0]
             cv2.line(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
@@ -102,9 +106,16 @@ class ImageSubscriber(Node):
             for (x, y) in intersections:
                 cv2.circle(img3, (x, y), 5, (0, 0, 255), -1) # PUNTOS INTERSECCION ROJO
 
+            self.get_logger().info(f"Y Inverted Shape found")
             cv2.imshow('Y Inverted Shape', img3)
+
+            avg_dev, orientation = determine_direction(y_inverted_found)
+            self.get_logger().info(f"avg_dev: {avg_dev}")
+            self.get_logger().info(f"orientation: {orientation}")
+            data_to_publish = f"{avg_dev},{orientation}"
+            self.angleToRotatePublisher.publish(String(data=data_to_publish))
         else:
-            print("No 'Y' inverted shape found")
+            self.get_logger().info(f"No Y inverted shape found")
 
         vertical_lines = []
         horizontal_lines = []
@@ -240,18 +251,22 @@ def calculate_angle_between_lines(m1, m2):
             return 90 - angle  # Ángulo con respecto a una línea horizontal
     else:
         # Caso general donde ninguna línea es vertical
+        if m1 * m2 == -1:
+            return 90  # Líneas perpendiculares, ángulo es 90 grados
         tan_theta = abs((m2 - m1) / (1 + m1 * m2))
         angle = math.degrees(math.atan(tan_theta))  
         return angle
 
 
-def are_lines_about_120_degrees(m1, m2, margin_of_error=15):
+def are_lines_about_120_degrees(m1, m2, error_margin=15):
     # Calcula el ángulo entre las dos líneas
     angle = calculate_angle_between_lines(m1, m2)
     # print('angle', angle)
     
     # Verifica si el ángulo es aproximadamente 120 grados
-    return abs(angle - 120) <= margin_of_error or abs(angle - 60) <= margin_of_error
+    # Tambien se compara con 60 por si se esta tomando el menor angulo entre las rectas
+    # 60 es el angulo suplementario de 120
+    return abs(angle - 120) <= error_margin or abs(angle - 60) <= error_margin
 
 # Devuelve 3 lineas con aprox 120 grados entre ellas
 # Se queda con la terna con la linea vertical mas arriba que haya
@@ -301,6 +316,42 @@ def find_line_intersection(line1, line2, tolerance=0.1):
     y = det(d, ydiff) / div
 
     return (int(x), int(y))
+
+def determine_direction(lines, error_margin=5):
+    vertical_edge = None
+    left_edge = None
+    right_edge = None
+    for line in lines:
+        m = slope(line)
+        if m == float('inf'):
+            vertical_edge = line
+        elif m  > 0:
+            left_edge = line
+        else:
+            right_edge = line
+
+    if vertical_edge is None or left_edge is None or right_edge is None:
+        return None
+
+    vertical_m = slope(vertical_edge)
+    left_m = slope(left_edge)
+    right_m = slope(right_edge)
+
+    left_angle = 180 - calculate_angle_between_lines(left_m, vertical_m)
+    right_angle = 180 - calculate_angle_between_lines(vertical_m, right_m)
+
+    dev1 = abs(left_angle - 120)
+    dev2 = abs(right_angle - 120)
+
+    avg_dev = (dev1 + dev2) / 3
+
+    orientation = 0 # no me debo mover
+    if (left_angle < 120 - error_margin or right_angle > 120 + error_margin):
+        orientation = 1  # Positivo, gira en sentido antihorario
+    elif (left_angle > 120 + error_margin or right_angle < 120 - error_margin):
+        orientation = -1  # Negativo, gira en sentido horario
+
+    return avg_dev, orientation
 
 def main(args=None):
     rclpy.init(args=args)
