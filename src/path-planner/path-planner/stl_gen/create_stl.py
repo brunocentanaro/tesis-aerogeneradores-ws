@@ -1,26 +1,25 @@
 import numpy as np
 
 class WindTurbine:
-    def __init__(self, tower_height, rotor_diameter, blade_length, stl_name):
+    def __init__(self, tower_height, rotor_diameter, blade_length, stl_path):
         self.tower_height = tower_height
         self.rotor_diameter = rotor_diameter
         self.blade_length = blade_length
-        self.stl_name = stl_name
+        self.stl_path = stl_path
 
-def create_stl(windTurbine: WindTurbine=WindTurbine(80, 3, 10, "turbine2")):
-    w = 3      # center(hub) width, affects vertical blade width
-    b_w = 3                             # blade width
-    b_l = 40      # blade length
+def create_stl(windTurbine: WindTurbine=WindTurbine(80, 3, 10, "turbine")):
+    w = windTurbine.rotor_diameter      # center(hub) width, affects vertical blade width
+    b_w = w                             # blade width
+    b_l = windTurbine.blade_length      # blade length
     b_t = 0                             # blade thickness
-    t_c = 80 + 3  # height from vertical blade base to the ground
+    t_c = windTurbine.tower_height + w  # height from vertical blade base to the ground
 
     m_s = 1.5
     facets_range = int(np.ceil(b_l / m_s))
     num_points = int(np.ceil((b_l + 10) / m_s))
 
     x = np.zeros((2000, 3))
-    print(windTurbine.stl_name + ".stl")
-    with open(windTurbine.stl_name + ".stl", "w") as myfile:
+    with open(windTurbine.stl_path + ".stl", "w") as myfile:
         myfile.write("solid AssimpScene\n")
 
         cc = 0
@@ -119,5 +118,4 @@ def create_stl(windTurbine: WindTurbine=WindTurbine(80, 3, 10, "turbine2")):
         myfile.write("endsolid AssimpScene\n")
 
 if __name__ == '__main__':
-    print("hola")
     create_stl()

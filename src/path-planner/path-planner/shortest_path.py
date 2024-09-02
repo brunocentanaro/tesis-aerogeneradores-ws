@@ -49,7 +49,7 @@ def dist(p_to, p_from=np.array([0, 0, 0])):
     return np.linalg.norm(v)
 
 def shortest_path_from_stl(start_node, stl_name):
-    wt = Wireframe.from_stl_path('stl_gen/' + stl_name + '.stl')
+    wt = Wireframe.from_stl_path(stl_name + '.stl')
     gps = grouping(wt)
     sections = []
     for g in gps:
@@ -58,27 +58,26 @@ def shortest_path_from_stl(start_node, stl_name):
 
 def shortest_path(start_node, sections: List[Section]):
     points = []
-    #points_to_sections = {}
+    points_to_sections = {}
     for s in sections:
         points.append(s.p1)
         points.append(s.p2)
-        #points_to_sections[s.p1_str] = s
-        #points_to_sections[s.p2_str] = s
+        points_to_sections[s.p1_str] = s
+        points_to_sections[s.p2_str] = s
     edges = np.zeros((len(points), len(points)))
     for i, p in enumerate(points):
         for j in range(i + 1, len(points)):
             p2 = points[j]
-            #if points_to_sections[str(p)] == points_to_sections[str(p2)]:
-            #    d = 0
-            #else:
-            d = dist(p, p2)
+            if points_to_sections[str(p)] == points_to_sections[str(p2)]:
+                d = 0
+            else:
+                d = dist(p, p2)
             edges[i, j] = d
             edges[j, i] = d
     start_distances = np.array([dist(start_node, points[i]) for i in range(len(points))])
     edges = np.vstack([start_distances, edges])
     edges = np.hstack([np.hstack((0, start_distances)).reshape(-1, 1), edges])
     best_order, best_dist = solve_tsp(start_node, points, edges)
-    print("Done")
     print(f"Best: order={str(best_order)}, dist={best_dist}")
     return np.array(points)[best_order]
 
