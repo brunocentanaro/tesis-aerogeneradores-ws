@@ -4,7 +4,7 @@ from px4_msgs.msg import OffboardControlMode, TrajectorySetpoint, VehicleCommand
 from std_msgs.msg import String
 from rclpy.qos import QoSProfile, QoSDurabilityPolicy, QoSReliabilityPolicy
 import math
-from drone_control.utils import distance_and_bearing
+from drone_control.utils import *
 
 IN_WAYPOINT_THRESHOLD = 0.2
 NEAR_WAYPOINT_THRESHOLD = 0.5
@@ -267,10 +267,12 @@ class OffboardControl(Node):
             self.processing_waypoint = False
             return
 
-        distance, yaw = distance_and_bearing(
+        distance, yaw = getCoordinateInLineToWindTurbineXDistanceBefore(
             self.currentPosition[0], self.currentPosition[1],
-            latitude, longitude
+            latitude, longitude,
+            40
         )
+        self.get_logger().info('Distance: %s, Yaw: %s' % (distance, yaw))
         distanceForward = distance * math.cos(yaw)
         distanceRight = distance * math.sin(yaw)
         return distanceForward, distanceRight, 0, yaw
