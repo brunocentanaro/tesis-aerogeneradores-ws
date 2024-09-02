@@ -1,6 +1,6 @@
 from setuptools import find_packages, setup
 
-package_name = 'path-planner'
+package_name = 'path_planner'
 
 setup(
     name=package_name,
