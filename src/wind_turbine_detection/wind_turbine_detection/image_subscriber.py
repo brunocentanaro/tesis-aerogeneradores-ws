@@ -109,7 +109,7 @@ class ImageSubscriber(Node):
             self.get_logger().info(f"Y Inverted Shape found")
             cv2.imshow('Y Inverted Shape', img3)
 
-            avg_dev, orientation = determine_direction(self, y_inverted_found)
+            avg_dev, orientation = determine_direction(y_inverted_found)
             self.get_logger().info(f"avg_dev: {avg_dev}")
             self.get_logger().info(f"orientation: {orientation}")
             data_to_publish = f"{avg_dev},{orientation}"
@@ -258,7 +258,7 @@ def calculate_angle_between_lines(m1, m2):
         return angle
 
 
-def are_lines_about_120_degrees(m1, m2, error_margin=25):
+def are_lines_about_120_degrees(m1, m2, error_margin=15):
     # Calcula el ángulo entre las dos líneas
     angle = calculate_angle_between_lines(m1, m2)
     # print('angle', angle)
@@ -339,13 +339,11 @@ def determine_direction(lines, error_margin=5):
 
     left_angle = 180 - calculate_angle_between_lines(left_m, vertical_m)
     right_angle = 180 - calculate_angle_between_lines(vertical_m, right_m)
-    botton_angle = 180 - calculate_angle_between_lines(left_m, right_m)
 
     dev1 = abs(left_angle - 120)
     dev2 = abs(right_angle - 120)
-    dev3 = abs(botton_angle - 120)
 
-    avg_dev = (dev1 + dev2 + dev3) / 3
+    avg_dev = (dev1 + dev2) / 3
 
     orientation = 0 # no me debo mover
     if (left_angle < 120 - error_margin or right_angle > 120 + error_margin):
