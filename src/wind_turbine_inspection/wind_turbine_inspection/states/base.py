@@ -3,6 +3,7 @@ from rclpy.node import Node
 from std_msgs.msg import String
 from abc import ABC, abstractmethod
 from enum import Enum
+from rclpy.task import Future
 
 class WindTurbineInspectionStage(Enum):
     IDLE = "idle"
@@ -21,13 +22,18 @@ class InspectionState(ABC, Node):
         self.name = name
         self.state_machine = state_machine
         self.subscriber = self.create_subscription(String, '/drone_control/waypoint_reached', self.waypoint_reached_callback, 10)
+        self._future = Future()
 
     @abstractmethod
     def waypoint_reached_callback(self, msg):
         pass
 
     def advance_to_next_state(self):
-        self.state_machine.change_state()
+        self._future.set_result(True)
+    
+    def get_future(self):
+        return self._future
+        
 
     @classmethod
     def update_shared_state(cls, key, value):

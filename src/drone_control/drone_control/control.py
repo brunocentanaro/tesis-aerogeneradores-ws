@@ -1,10 +1,10 @@
 import rclpy
 from rclpy.node import Node
-from px4_msgs.msg import OffboardControlMode, TrajectorySetpoint, VehicleCommand, ManualControlSetpoint, SensorGps, VehicleGlobalPosition, VehicleLocalPosition
+from px4_msgs.msg import OffboardControlMode, TrajectorySetpoint, VehicleCommand, ManualControlSetpoint, VehicleLocalPosition, VehicleGlobalPosition, VehicleLocalPosition
 from std_msgs.msg import String
 from rclpy.qos import QoSProfile, QoSDurabilityPolicy, QoSReliabilityPolicy
 import math
-from drone_control.utils import distance_and_bearing
+from drone_control.utils import *
 
 IN_WAYPOINT_THRESHOLD = 0.2
 NEAR_WAYPOINT_THRESHOLD = 0.5
@@ -48,8 +48,8 @@ class OffboardControl(Node):
         )
 
         self.subscription = self.create_subscription(
-            SensorGps,
-            '/fmu/out/vehicle_gps_position',
+            VehicleLocalPosition,
+            '/fmu/out/vehicle_local_position',
             self.listener_callback1,
             qos_profile
         )
@@ -96,12 +96,36 @@ class OffboardControl(Node):
             10
         )
 
+        self.rotateWithoutMovingSubscription = self.create_subscription(
+            String,
+            'rotate_without_moving',
+            self.rotateWithoutMoving,
+            10
+        )
+
+        self.changeDroneHeight = self.create_subscription(
+            String,
+            'change_height',
+            self.changeDroneHeightCallback,
+            10
+        )
+
         self.offboard_control_mode_publisher = self.create_publisher(OffboardControlMode, '/fmu/in/offboard_control_mode', 10)
         self.trajectory_setpoint_publisher = self.create_publisher(TrajectorySetpoint, '/fmu/in/trajectory_setpoint', 10)
         self.vehicle_command_publisher = self.create_publisher(VehicleCommand, '/fmu/in/vehicle_command', 10)
         self.manual_control_setpoint_publisher = self.create_publisher(ManualControlSetpoint, '/fmu/in/manual_control_setpoint', 10)
         self.waypointReachedPublisher = self.create_publisher(String, 'waypoint_reached', 10)
+        self.currentHeading = 0.0
 
+
+    def changeDroneHeightCallback(self, msg):
+        self.get_logger().info('Received: "%s"' % msg.data)
+        try:
+            height = float(msg.data)
+            self.wayPointsStack.append((0.0, 0.0, height, 0.0, 'change height'))
+        except ValueError:
+            self.get_logger().error('Invalid waypoint format. Expected format: "height"')
+            return
 
     def startTakeoffProcedure(self, msg):
         try:
@@ -122,7 +146,7 @@ class OffboardControl(Node):
         self.currentPosition = [msg.lat, msg.lon, msg.alt]
 
     def listener_callback1(self, msg):
-        self.currentCOG = msg.cog_rad
+        self.currentHeading = msg.heading
 
     def gpsWaypointCallback(self, msg):
         self.get_logger().info('Received: "%s"' % msg.data)
@@ -146,6 +170,28 @@ class OffboardControl(Node):
             self.wayPointsStack[-1] = (lastWaypoint[0], lastWaypoint[1], lastWaypoint[2], lastWaypoint[3], 'centered')
         except ValueError:
             self.get_logger().error('error')
+
+
+    def rotateWithoutMoving(self, msg):
+        self.get_logger().info('Received: "%s"' % msg.data)
+        try:
+            degrees = float(msg.data)
+            stepsPerDegree = 2
+            previousYaw = 0
+            rangeToCover = math.floor(abs(degrees)) * stepsPerDegree
+            if rangeToCover == 0:
+                return
+            for i in range(math.floor(abs(degrees)) * stepsPerDegree):
+                newYaw = math.radians(i) * (1 if degrees > 0 else -1) / stepsPerDegree
+                delta = newYaw - previousYaw
+                self.wayPointsStack.append((0, 0, 0, delta, EMPTY_MESSAGE))
+                previousYaw = newYaw
+            lastSetWaypoint = self.wayPointsStack[-1]
+            self.wayPointsStack[-1] = (lastSetWaypoint[0], lastSetWaypoint[1], lastSetWaypoint[2], lastSetWaypoint[3], 'looking to where i need')
+        except ValueError:
+            self.get_logger().error
+
+
 
     def timer_callback(self):
         if self.shouldArmAndTakeoff:
@@ -216,15 +262,17 @@ class OffboardControl(Node):
             self.get_logger().error('Invalid waypoint format. Expected format: "x,y,z"')
 
     def process_new_waypoint(self, latitude, longitude):
-        if not self.currentPosition or not self.currentCOG:
+        if not self.currentPosition or not self.currentHeading:
             self.get_logger().error('No GPS data available')
             self.processing_waypoint = False
             return
 
-        distance, yaw = distance_and_bearing(
+        distance, yaw = getCoordinateInLineToWindTurbineXDistanceBefore(
             self.currentPosition[0], self.currentPosition[1],
-            latitude, longitude
+            latitude, longitude,
+            40
         )
+        self.get_logger().info('Distance: %s, Yaw: %s' % (distance, yaw))
         distanceForward = distance * math.cos(yaw)
         distanceRight = distance * math.sin(yaw)
         return distanceForward, distanceRight, 0, yaw
@@ -237,7 +285,7 @@ class OffboardControl(Node):
             self.previous_setpoint[1] + y,
             self.previous_setpoint[2] + z
         ]
-        self.currentYaw = yaw
+        self.currentYaw = (self.currentYaw + yaw + math.pi) % (2 * math.pi) - math.pi
         self.onWaypointReachedMessage = message
 
     def arm(self):
@@ -274,8 +322,11 @@ class OffboardControl(Node):
             distanceToCoverZ = z - self.currentLocalPosition[2]
 
         max_distance = max(abs(distanceToCoverX), abs(distanceToCoverY), abs(distanceToCoverZ))
+        yawDistance = abs(self.currentYaw - self.currentHeading) % (2 * math.pi)
         if max_distance < IN_WAYPOINT_THRESHOLD and self.processing_waypoint:
-            self.onWaypointReached()
+            if (yawDistance < 0.1):
+                self.onWaypointReached()
+            self.get_logger().info('yawDistance: %s, currentYaw: %s, currentHeading: %s' % (yawDistance, self.currentYaw, self.currentHeading))
         elif max_distance < NEAR_WAYPOINT_THRESHOLD and self.processing_waypoint:
             self.nearTicker += 1
             if self.nearTicker > 5:
