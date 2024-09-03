@@ -342,8 +342,8 @@ class OffboardControl(Node):
             self.processing_waypoint = False
             self.nearTicker = 0
             if (self.onWaypointReachedMessage and self.onWaypointReachedMessage != EMPTY_MESSAGE):
-                self.onWaypointReachedMessage = EMPTY_MESSAGE
                 self.waypointReachedPublisher.publish(String(data=self.onWaypointReachedMessage))
+                self.onWaypointReachedMessage = EMPTY_MESSAGE
 
     def publish_vehicle_command(self, command, param1=0.0, param2=0.0):
         msg = VehicleCommand()

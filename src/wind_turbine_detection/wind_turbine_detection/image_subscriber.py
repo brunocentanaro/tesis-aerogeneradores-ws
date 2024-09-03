@@ -120,12 +120,14 @@ class ImageSubscriber(Node):
                 fieldOfView = math.degrees(CAMERA_FOV)
                 self.angleToHaveWTCenteredOnImagePublisher.publish(String(data=f"{percentageInImage * fieldOfView - fieldOfView / 2},{intersectionsAverageY}"))
 
+            self.get_logger().info(f"Y Inverted Shape found")
             cv2.imshow('Y Inverted Shape', img3)
 
-            angle_to_rotate_centered_on_wt = determine_direction(y_inverted_found)
-            if angle_to_rotate_centered_on_wt is None:
-                return
-            self.angleToRotatePublisher.publish(String(data=f"{angle_to_rotate_centered_on_wt}"))
+            avg_dev, orientation = determine_direction(y_inverted_found)
+            self.get_logger().info(f"avg_dev: {avg_dev}")
+            self.get_logger().info(f"orientation: {orientation}")
+            data_to_publish = f"{avg_dev},{orientation}"
+            self.angleToRotatePublisher.publish(String(data=data_to_publish))
 
         vertical_lines = []
         horizontal_lines = []
@@ -261,18 +263,22 @@ def calculate_angle_between_lines(m1, m2):
             return 90 - angle  # Ángulo con respecto a una línea horizontal
     else:
         # Caso general donde ninguna línea es vertical
+        if m1 * m2 == -1:
+            return 90  # Líneas perpendiculares, ángulo es 90 grados
         tan_theta = abs((m2 - m1) / (1 + m1 * m2))
         angle = math.degrees(math.atan(tan_theta))  
         return angle
 
 
-def are_lines_about_120_degrees(m1, m2, margin_of_error=15):
+def are_lines_about_120_degrees(m1, m2, error_margin=15):
     # Calcula el ángulo entre las dos líneas
     angle = calculate_angle_between_lines(m1, m2)
     # print('angle', angle)
     
     # Verifica si el ángulo es aproximadamente 120 grados
-    return abs(angle - 120) <= margin_of_error or abs(angle - 60) <= margin_of_error
+    # Tambien se compara con 60 por si se esta tomando el menor angulo entre las rectas
+    # 60 es el angulo suplementario de 120
+    return abs(angle - 120) <= error_margin or abs(angle - 60) <= error_margin
 
 # Devuelve 3 lineas con aprox 120 grados entre ellas
 # Se queda con la terna con la linea vertical mas arriba que haya
@@ -323,7 +329,7 @@ def find_line_intersection(line1, line2, tolerance=0.1):
 
     return (int(x), int(y))
 
-def determine_direction(lines):
+def determine_direction(lines, error_margin=5):
     vertical_edge = None
     left_edge = None
     right_edge = None
@@ -343,16 +349,21 @@ def determine_direction(lines):
     left_m = slope(left_edge)
     right_m = slope(right_edge)
 
-    left_angle = calculate_angle_between_lines(left_m, vertical_m)
-    right_angle = calculate_angle_between_lines(vertical_m, right_m)
-    botton_angle = calculate_angle_between_lines(left_m, right_m)
+    left_angle = 180 - calculate_angle_between_lines(left_m, vertical_m)
+    right_angle = 180 - calculate_angle_between_lines(vertical_m, right_m)
 
-    if (left_angle < 120):
-        return (120 - left_angle) # degree positivo, gira en sentido antihorario
-    elif (left_angle > 120):
-        return (left_angle - 120) # degree negativo, gira en sentido horario
-    else:
-        return 0 # no me debo mover
+    dev1 = abs(left_angle - 120)
+    dev2 = abs(right_angle - 120)
+
+    avg_dev = (dev1 + dev2) / 3
+
+    orientation = 0 # no me debo mover
+    if (left_angle < 120 - error_margin or right_angle > 120 + error_margin):
+        orientation = 1  # Positivo, gira en sentido antihorario
+    elif (left_angle > 120 + error_margin or right_angle < 120 - error_margin):
+        orientation = -1  # Negativo, gira en sentido horario
+
+    return avg_dev, orientation
 
 def main(args=None):
     rclpy.init(args=args)
