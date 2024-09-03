@@ -18,6 +18,8 @@ model_not_turbine_path = os.path.join(package_share_directory, 'resource', 'yolo
 model = YOLO(model_path)
 modelNotTurbine = YOLO(model_not_turbine_path)
 
+CAMERA_FOV = 1.204 # radianes
+
 class ImageSubscriber(Node):
     def __init__(self):
         super().__init__('image_subscriber')
@@ -28,7 +30,8 @@ class ImageSubscriber(Node):
             10)
         self.subscription
         self.br = CvBridge()
-        self.angleToRotatePublisher = self.create_publisher(String, 'angle_to_rotate', 10)
+        self.angleToRotatePublisher = self.create_publisher(String, 'angle_to_rotate_centered_on_wt', 10)
+        self.angleToHaveWTCenteredOnImagePublisher = self.create_publisher(String, 'angle_to_have_wt_centered_on_image', 10)
         # print(model.names)
         # print(modelNotTurbine.names)
    
@@ -84,7 +87,7 @@ class ImageSubscriber(Node):
         cv2.imshow('All detected lines', img)
 
         # Find configurations of lines that form a 'Y' inverted shape
-        y_inverted_found = y_inverted(lines)
+        y_inverted_found, verticalLine = y_inverted(lines)
 
         # Draw the detected lines on the image
         if y_inverted_found:
@@ -102,9 +105,20 @@ class ImageSubscriber(Node):
                 x1, y1, x2, y2 = line[0]
                 cv2.line(img3, (x1, y1), (x2, y2), (0, 255, 0), 2) # LINEAS Y INVERTIDA VERDE
 
-            # Dibuja los puntos de intersección
+            intersectionsAverageX = 0
+            intersectionsAverageY = 0
             for (x, y) in intersections:
                 cv2.circle(img3, (x, y), 5, (0, 0, 255), -1) # PUNTOS INTERSECCION ROJO
+                intersectionsAverageX += x
+                intersectionsAverageY += y
+
+            if intersections:
+                intersectionsAverageX = intersectionsAverageX / len(intersections) / img.shape[1]
+                intersectionsAverageY = intersectionsAverageY / len(intersections) / img.shape[0]
+                cv2.circle(img3, (int(intersectionsAverageX), int(intersectionsAverageY)), 5, (255, 0, 0), -1)
+                percentageInImage = (x1 + x2) / 2 / img.shape[1]
+                fieldOfView = math.degrees(CAMERA_FOV)
+                self.angleToHaveWTCenteredOnImagePublisher.publish(String(data=f"{percentageInImage * fieldOfView - fieldOfView / 2},{intersectionsAverageY}"))
 
             self.get_logger().info(f"Y Inverted Shape found")
             cv2.imshow('Y Inverted Shape', img3)
@@ -114,8 +128,6 @@ class ImageSubscriber(Node):
             self.get_logger().info(f"orientation: {orientation}")
             data_to_publish = f"{avg_dev},{orientation}"
             self.angleToRotatePublisher.publish(String(data=data_to_publish))
-        else:
-            self.get_logger().info(f"No Y inverted shape found")
 
         vertical_lines = []
         horizontal_lines = []
@@ -273,6 +285,7 @@ def are_lines_about_120_degrees(m1, m2, error_margin=15):
 def y_inverted(lines):
     highest = None
     highest_y = float('inf')
+    vertical_line = None
 
     for comb in combinations(lines, 3):
         line1, line2, line3 = comb
@@ -282,7 +295,6 @@ def y_inverted(lines):
         angle31 = are_lines_about_120_degrees(slope(line3), slope(line1))
 
         if angle12 and angle23 and angle31:
-            vertical_line = None
             for line in (line1, line2, line3):
                 if slope(line) == float('inf'):
                     vertical_line = line
@@ -294,7 +306,7 @@ def y_inverted(lines):
                 if y_max_vertical < highest_y:
                     highest = (line1, line2, line3)
                     highest_y = y_max_vertical
-    return highest
+    return highest, vertical_line
 
 # Encuentra la intersección entre dos líneas representadas por (x1, y1, x2, y2)
 def find_line_intersection(line1, line2, tolerance=0.1):

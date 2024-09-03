@@ -12,8 +12,12 @@ class WindTurbineInspectionStateMachine(Node):
     def __init__(self):
         super().__init__('inspection_state_machine')
         self.current_state = IdleState(self)
-        rclpy.spin_once(self.current_state)
-        self.run()
+        self.spin_until_state_complete()
+
+    def spin_until_state_complete(self):
+        future = self.current_state.get_future()
+        rclpy.spin_until_future_complete(self.current_state, future)
+        self.change_state()
 
     def change_state(self):
         current_state = type(self.current_state)
@@ -36,10 +40,8 @@ class WindTurbineInspectionStateMachine(Node):
         else:
             self.current_state = IdleState(self)
 
-        rclpy.spin_once(self.current_state) 
+        self.spin_until_state_complete()
 
-    def run(self):
-        rclpy.spin(self)
 
 def main(args=None):
     rclpy.init(args=args)

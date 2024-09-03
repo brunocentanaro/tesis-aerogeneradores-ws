@@ -1,5 +1,5 @@
-<sdf version='1.10'>
-  <world name='default'>
+<sdf version="1.10">
+  <world name="default">
       <wind>
       <linear_velocity>0 0 0</linear_velocity>
     </wind>
@@ -38,7 +38,7 @@
         </noise>
       </vertical>
     </plugin>
-    <physics type='ode'>
+    <physics type="ode">
       <max_step_size>0.0040000000000000001</max_step_size>
       <real_time_factor>1</real_time_factor>
       <real_time_update_rate>250</real_time_update_rate>
@@ -206,9 +206,9 @@
     <spherical_coordinates>
       <surface_model>EARTH_WGS84</surface_model>
       <world_frame_orientation>ENU</world_frame_orientation>
-      <latitude_deg>-34.628104</latitude_deg>
-      <longitude_deg>-54.957509999999999</longitude_deg>
-      <elevation>0</elevation>
+      <latitude_deg>-34.628086</latitude_deg>
+      <longitude_deg>-54.957612</longitude_deg>
+      <elevation>220</elevation>
       <heading_deg>0</heading_deg>
     </spherical_coordinates>
     <include>
