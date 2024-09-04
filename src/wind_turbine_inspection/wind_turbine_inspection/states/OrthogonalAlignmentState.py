@@ -32,7 +32,6 @@ class OrthogonalAlignmentState(InspectionState):
         #     self.moveCenteredPublisher.publish(rotateMsg)
         
     def angle_to_have_wt_centered_callback(self, msg):
-        self.get_logger().info(f"angle_to_have_wt_centered_callback received: {msg.data}")
         if (self.rotatingWithoutMoving):
             return
         try:

@@ -1,5 +1,6 @@
 import math
 from geopy.distance import geodesic
+import numpy as np
 
 def get_bearing(lat1, lon1, lat2, lon2):
     lat1_rad = math.radians(lat1)
@@ -21,3 +22,16 @@ def getCoordinateInLineToWindTurbineXDistanceBefore(lat1, lon1, lat2, lon2, dist
     bearing = get_bearing(lat1, lon1, lat2, lon2)
 
     return abs(distance_to_new_point), bearing
+
+
+def rotate_ned(north, east, down, angle):
+    rotation_matrix = np.array([
+        [np.cos(angle), -np.sin(angle), 0],
+        [np.sin(angle), np.cos(angle), 0],
+        [0, 0, 1]
+    ])
+    
+    ned_coords = np.array([north, east, down])
+    rotated_coords = np.dot(rotation_matrix, ned_coords)
+    
+    return rotated_coords[0], rotated_coords[1], rotated_coords[2]
