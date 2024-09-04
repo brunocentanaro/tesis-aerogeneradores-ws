@@ -164,11 +164,18 @@ class OffboardControl(Node):
         try:
             newWaypoints = []
             degrees, distanceToWindTurbine = map(float, msg.data.split(','))
+            previousHeading, previousX, previousY = 0, 0, 0
+            
             for i in range(math.floor(degrees)):
                 x = distanceToWindTurbine  - distanceToWindTurbine * math.cos(math.radians(i))
                 y = distanceToWindTurbine * math.sin(math.radians(i))
-                yawLookingToWindTurbine = -math.radians(i)
-                newWaypoints.append((x, y, 0, yawLookingToWindTurbine, EMPTY_MESSAGE))
+                newYaw = -math.radians(i)
+                changeX, changeY, changeYaw = x - previousX, y - previousY, newYaw - previousHeading
+                
+
+                previousX, previousY, previousHeading = x, y, newYaw
+
+                newWaypoints.append((changeX, changeY, 0, changeYaw, EMPTY_MESSAGE))
             lastWaypoint = newWaypoints[-1]
             newWaypoints[-1] = (lastWaypoint[0], lastWaypoint[1], lastWaypoint[2], lastWaypoint[3], 'centered')
             self.wayPointsGroupedForHeading.append(newWaypoints)
@@ -236,10 +243,15 @@ class OffboardControl(Node):
                 return
             elif self.wayPointsGroupedForHeading:
                 currentHeading = self.currentHeading
-                currentYaw = self.currentYaw
                 for waypoint in self.wayPointsGroupedForHeading.pop(0):
-                    x, y, z, yaw, message = waypoint
-                    self.wayPointsStack.append((x, y, z, yaw, message))
+                    north = waypoint[0]
+                    east = waypoint[1]
+                    down = waypoint[2]
+                    yawChange = waypoint[3]
+                    message = waypoint[4]
+                
+                    newNorth, newEast, newDown = rotate_ned(north, east, down, currentHeading)
+                    self.wayPointsStack.append((newNorth, newEast, newDown, yawChange, message))
 
     def inspectWindTurbine(self, msg):
         self.get_logger().info('Received: "%s"' % msg.data)
@@ -349,7 +361,7 @@ class OffboardControl(Node):
             self.get_logger().info('yawDistance: %s, currentYaw: %s, currentHeading: %s' % (yawDistance, self.currentYaw, self.currentHeading))
         elif max_distance < NEAR_WAYPOINT_THRESHOLD and self.processing_waypoint:
             self.nearTicker += 1
-            if self.nearTicker > 5:
+            if self.nearTicker > 50:
                 self.get_logger().info('Ticks near this waypoint: %s' % self.nearTicker)
         
         msg.velocity = self.currentSetpointEndSpeed
