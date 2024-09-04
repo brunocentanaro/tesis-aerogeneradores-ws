@@ -120,12 +120,9 @@ class ImageSubscriber(Node):
                 fieldOfView = math.degrees(CAMERA_FOV)
                 self.angleToHaveWTCenteredOnImagePublisher.publish(String(data=f"{percentageInImage * fieldOfView - fieldOfView / 2},{intersectionsAverageY}"))
 
-            self.get_logger().info(f"Y Inverted Shape found")
             cv2.imshow('Y Inverted Shape', img3)
 
             avg_dev, orientation = determine_direction(y_inverted_found)
-            self.get_logger().info(f"avg_dev: {avg_dev}")
-            self.get_logger().info(f"orientation: {orientation}")
             data_to_publish = f"{avg_dev},{orientation}"
             self.angleToRotatePublisher.publish(String(data=data_to_publish))
 
