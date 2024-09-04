@@ -116,13 +116,15 @@ class OffboardControl(Node):
         self.manual_control_setpoint_publisher = self.create_publisher(ManualControlSetpoint, '/fmu/in/manual_control_setpoint', 10)
         self.waypointReachedPublisher = self.create_publisher(String, 'waypoint_reached', 10)
         self.currentHeading = 0.0
+        self.wayPointsGroupedForHeading = []
 
 
     def changeDroneHeightCallback(self, msg):
         self.get_logger().info('Received: "%s"' % msg.data)
         try:
             height = float(msg.data)
-            self.wayPointsStack.append((0.0, 0.0, height, 0.0, 'change height'))
+            self.wayPointsGroupedForHeading.append([(0.0, 0.0, height, 0.0, 'change height')])
+
         except ValueError:
             self.get_logger().error('Invalid waypoint format. Expected format: "height"')
             return
@@ -130,7 +132,7 @@ class OffboardControl(Node):
     def startTakeoffProcedure(self, msg):
         try:
             takeoffHeight = float(msg.data)
-            self.wayPointsStack.append((0.0, 0.0, -takeoffHeight, 0.0, 'takeoff'))
+            self.wayPointsGroupedForHeading.append([(0.0, 0.0, -takeoffHeight, 0.0, 'takeoff')])
             self.shouldArmAndTakeoff = True
         except ValueError:
             self.get_logger().error('Invalid waypoint format. Expected format: "height"')
@@ -153,21 +155,30 @@ class OffboardControl(Node):
         try:
             latitude, longitude = map(float, msg.data.split(','))
             x,y,z,yaw = self.process_new_waypoint(latitude, longitude)
-            self.wayPointsStack.append((x,y,z,yaw, f"{latitude},{longitude},{z}"))
+            self.wayPointsGroupedForHeading.append([(x,y,z,yaw, f"{latitude},{longitude},{z}")])
         except ValueError:
             self.get_logger().error('Invalid waypoint format. Expected format: "latitude,longitude,altitude"')
 
     def rotateKeepingCenter(self, msg):
         self.get_logger().info('Received: "%s"' % msg.data)
         try:
+            newWaypoints = []
             degrees, distanceToWindTurbine = map(float, msg.data.split(','))
+            previousHeading, previousX, previousY = 0, 0, 0
+            
             for i in range(math.floor(degrees)):
                 x = distanceToWindTurbine  - distanceToWindTurbine * math.cos(math.radians(i))
                 y = distanceToWindTurbine * math.sin(math.radians(i))
-                yawLookingToWindTurbine = -math.radians(i)
-                self.wayPointsStack.append((x, y, 0, yawLookingToWindTurbine, EMPTY_MESSAGE))
-            lastWaypoint = self.wayPointsStack[-1]
-            self.wayPointsStack[-1] = (lastWaypoint[0], lastWaypoint[1], lastWaypoint[2], lastWaypoint[3], 'centered')
+                newYaw = -math.radians(i)
+                changeX, changeY, changeYaw = x - previousX, y - previousY, newYaw - previousHeading
+                
+
+                previousX, previousY, previousHeading = x, y, newYaw
+
+                newWaypoints.append((changeX, changeY, 0, changeYaw, EMPTY_MESSAGE))
+            lastWaypoint = newWaypoints[-1]
+            newWaypoints[-1] = (lastWaypoint[0], lastWaypoint[1], lastWaypoint[2], lastWaypoint[3], 'centered')
+            self.wayPointsGroupedForHeading.append(newWaypoints)
         except ValueError:
             self.get_logger().error('error')
 
@@ -179,15 +190,17 @@ class OffboardControl(Node):
             stepsPerDegree = 2
             previousYaw = 0
             rangeToCover = math.floor(abs(degrees)) * stepsPerDegree
+            newWaypoints = []
             if rangeToCover == 0:
                 return
             for i in range(math.floor(abs(degrees)) * stepsPerDegree):
                 newYaw = math.radians(i) * (1 if degrees > 0 else -1) / stepsPerDegree
                 delta = newYaw - previousYaw
-                self.wayPointsStack.append((0, 0, 0, delta, EMPTY_MESSAGE))
+                newWaypoints.append((0, 0, 0, delta, EMPTY_MESSAGE))
                 previousYaw = newYaw
-            lastSetWaypoint = self.wayPointsStack[-1]
-            self.wayPointsStack[-1] = (lastSetWaypoint[0], lastSetWaypoint[1], lastSetWaypoint[2], lastSetWaypoint[3], 'looking to where i need')
+            lastSetWaypoint = newWaypoints[-1]
+            newWaypoints[-1] = (lastSetWaypoint[0], lastSetWaypoint[1], lastSetWaypoint[2], lastSetWaypoint[3], 'looking to where i need')
+            self.wayPointsGroupedForHeading.append(newWaypoints)
         except ValueError:
             self.get_logger().error
 
@@ -202,30 +215,43 @@ class OffboardControl(Node):
         self.publish_offboard_control_mode()
         self.publish_trajectory_setpoint()
 
-        if not self.processing_waypoint and self.wayPointsStack:
-            self.processing_waypoint = True
-            x, y, z, yaw, message = self.wayPointsStack.pop(0)
-
+        if not self.processing_waypoint:
             if self.wayPointsStack:
-                xNext, yNext, zNext, _, _ = self.wayPointsStack[0]
-            else:
-                xNext, yNext, zNext, yawNext = (0.0, 0.0, 0.0, 0.0)
+                self.processing_waypoint = True
+                x, y, z, yaw, message = self.wayPointsStack.pop(0)
 
-            maxDiff = max(abs(xNext), abs(yNext), abs(zNext))
-            multiplier = self.maxSpeed / maxDiff if maxDiff != 0 else 0.0
+                if self.wayPointsStack:
+                    xNext, yNext, zNext, _, _ = self.wayPointsStack[0]
+                else:
+                    xNext, yNext, zNext, yawNext = (0.0, 0.0, 0.0, 0.0)
 
-            newPossibleSpeed = [xNext * multiplier, yNext * multiplier, zNext * multiplier]
+                maxDiff = max(abs(xNext), abs(yNext), abs(zNext))
+                multiplier = self.maxSpeed / maxDiff if maxDiff != 0 else 0.0
 
-            hasChangeOfDirection = (newPossibleSpeed[0] * self.currentSetpointEndSpeed[0] < 0 or
-                newPossibleSpeed[1] * self.currentSetpointEndSpeed[1] < 0 or
-                newPossibleSpeed[2] * self.currentSetpointEndSpeed[2] < 0)
-            
-            if hasChangeOfDirection:
-                self.currentSetpointEndSpeed = [0.0, 0.0, 0.0]
-            else:
-                self.currentSetpointEndSpeed = newPossibleSpeed
+                newPossibleSpeed = [xNext * multiplier, yNext * multiplier, zNext * multiplier]
 
-            self.setNewSetpoint(x, y, z, yaw, message)
+                hasChangeOfDirection = (newPossibleSpeed[0] * self.currentSetpointEndSpeed[0] < 0 or
+                    newPossibleSpeed[1] * self.currentSetpointEndSpeed[1] < 0 or
+                    newPossibleSpeed[2] * self.currentSetpointEndSpeed[2] < 0)
+                
+                if hasChangeOfDirection:
+                    self.currentSetpointEndSpeed = [0.0, 0.0, 0.0]
+                else:
+                    self.currentSetpointEndSpeed = newPossibleSpeed
+
+                self.setNewSetpoint(x, y, z, yaw, message)
+                return
+            elif self.wayPointsGroupedForHeading:
+                currentHeading = self.currentHeading
+                for waypoint in self.wayPointsGroupedForHeading.pop(0):
+                    north = waypoint[0]
+                    east = waypoint[1]
+                    down = waypoint[2]
+                    yawChange = waypoint[3]
+                    message = waypoint[4]
+                
+                    newNorth, newEast, newDown = rotate_ned(north, east, down, currentHeading)
+                    self.wayPointsStack.append((newNorth, newEast, newDown, yawChange, message))
 
     def inspectWindTurbine(self, msg):
         self.get_logger().info('Received: "%s"' % msg.data)
@@ -235,15 +261,20 @@ class OffboardControl(Node):
             x = 0.0
             y = bladeLength * math.cos(math.radians(angleFromHorizontal))
             z = bladeLength * math.sin(math.radians(angleFromHorizontal))
-            self.addIntermediateWaypoints(x, y, z, 0.0)
-            self.addIntermediateWaypoints(x, -2 * y, 0, 0.0)
-            self.addIntermediateWaypoints(x, y, -z, 0.0)
-            self.addIntermediateWaypoints(x, 0, -bladeLength, 0.0)
+            newWaypoints1 = self.addIntermediateWaypoints(x, y, z, 0.0)
+            newWaypoints2 = self.addIntermediateWaypoints(x, -2 * y, 0, 0.0)
+            newWaypoints3 = self.addIntermediateWaypoints(x, y, -z, 0.0)
+            newWaypoints4 = self.addIntermediateWaypoints(x, 0, -bladeLength, 0.0)
+            newWaypointsGroup = newWaypoints1 + newWaypoints2 + newWaypoints3 + newWaypoints4
+            latestWaypoint = newWaypointsGroup[-1]
+            newWaypointsGroup[-1] = (latestWaypoint[0], latestWaypoint[1], latestWaypoint[2], latestWaypoint[3], 'wind turbine')
+            self.wayPointsGroupedForHeading.append(newWaypointsGroup)
         except ValueError:
             self.get_logger().error('Invalid waypoint format. Expected format: "x,y,z"')
 
     def addIntermediateWaypoints(self, x, y, z, yaw):
         maxDistance = max(abs(x), abs(y), abs(z))
+        newWaypoints = []
         distancePerWaypoint = 0.3
         numWaypoints = int(maxDistance / distancePerWaypoint)
         xStep = x / numWaypoints
@@ -251,7 +282,8 @@ class OffboardControl(Node):
         zStep = z / numWaypoints
         yawStep = yaw / numWaypoints
         for i in range(numWaypoints):
-            self.wayPointsStack.append((xStep, yStep, zStep, yawStep, EMPTY_MESSAGE))
+            newWaypoints.append((xStep, yStep, zStep, yawStep, EMPTY_MESSAGE))
+        return newWaypoints
 
     def distanceWaypointCallback(self, msg):
         self.get_logger().info('Received: "%s"' % msg.data)
@@ -329,7 +361,7 @@ class OffboardControl(Node):
             self.get_logger().info('yawDistance: %s, currentYaw: %s, currentHeading: %s' % (yawDistance, self.currentYaw, self.currentHeading))
         elif max_distance < NEAR_WAYPOINT_THRESHOLD and self.processing_waypoint:
             self.nearTicker += 1
-            if self.nearTicker > 5:
+            if self.nearTicker > 50:
                 self.get_logger().info('Ticks near this waypoint: %s' % self.nearTicker)
         
         msg.velocity = self.currentSetpointEndSpeed
