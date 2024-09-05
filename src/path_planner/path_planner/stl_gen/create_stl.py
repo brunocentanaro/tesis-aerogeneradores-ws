@@ -1,18 +1,17 @@
 import numpy as np
 
 class WindTurbine:
-    def __init__(self, tower_height, rotor_diameter, blade_length, stl_path):
-        self.tower_height = tower_height
+    def __init__(self, rotor_diameter, blade_length, stl_path):
         self.rotor_diameter = rotor_diameter
         self.blade_length = blade_length
         self.stl_path = stl_path
 
-def create_stl(windTurbine: WindTurbine=WindTurbine(80, 3, 10, "turbine")):
+def create_stl(windTurbine: WindTurbine=WindTurbine(3, 10, "turbine")):
     w = windTurbine.rotor_diameter      # center(hub) width, affects vertical blade width
     b_w = w                             # blade width
     b_l = windTurbine.blade_length      # blade length
     b_t = 0                             # blade thickness
-    t_c = windTurbine.tower_height + w  # height from vertical blade base to the ground
+    t_c = w/2                           # 
 
     m_s = 1.5
     facets_range = int(np.ceil(b_l / m_s))
