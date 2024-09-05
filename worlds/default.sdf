@@ -226,16 +226,13 @@
       <name>Molino_test</name>
       <pose>-80.044853210449219 -128.54740905761719 131.65168762207031 -3.1313199984408717 0.026471900461969011 1.8490400747854725</pose>
     </include>
-    <include>
-      <uri>model://x500_depth</uri>
-      <name>x500_depth_0</name>
-      <pose>-78.979598999033044 -93.531097412173338 54.67973674281729 6.0838146871571696e-13 3.0436981251952733e-09 -1.5556999412837302</pose>
-    </include>
     <light name='sunUTC' type='directional'>
+    <time>10.0</time> <!-- Hora del día -->
+    <clouds>0</clouds>
       <pose>-68 -66 150 0 0 0</pose>
       <cast_shadows>true</cast_shadows>
       <intensity>1</intensity>
-      <direction>0 -0.56000000000000005 -0.82999999999999996</direction>
+      <direction>0 0.56000000000000005 -0.32999999999999996</direction>
       <diffuse>0.903999984 0.903999984 0.903999984 1</diffuse>
       <specular>0.270999998 0.270999998 0.270999998 1</specular>
       <attenuation>
