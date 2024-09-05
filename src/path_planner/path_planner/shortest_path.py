@@ -13,8 +13,8 @@ data = {}
 use_cache = True
 
 class Section:
-    def __init__(self, points):
-        self.points = np.array(points)
+    def __init__(self, points, safe_distance=0):
+        self.points = np.array(points) + np.array([0,1,0]) * safe_distance
         
         conteo_x = Counter(self.points[:, 0])
         print(conteo_x)
@@ -27,9 +27,6 @@ class Section:
         self.p2 = midpoint(self.points[-1], self.points[-2])  # highest point (need to reorder list)
         self.p1_str = str(self.p1)
         self.p2_str = str(self.p2)
-
-    def scale_using_normal(self, multiplier):
-        return Section(self.points + np.array([0,1,0]) * multiplier)
 
     def get_ordered_points(self, p_str):
         if p_str == self.p1_str:
@@ -48,12 +45,12 @@ def dist(p_to, p_from=np.array([0, 0, 0])):
     v = p_to - p_from
     return np.linalg.norm(v)
 
-def shortest_path_from_stl(start_node, stl_name):
+def shortest_path_from_stl(start_node, safe_distance, stl_name):
     wt = Wireframe.from_stl_path(stl_name + '.stl')
     gps = grouping(wt)
     sections = []
     for g in gps:
-        sections.append(Section(g))
+        sections.append(Section(g, safe_distance))
     return shortest_path(np.array(start_node), sections)
 
 def shortest_path(start_node, sections: List[Section]):
