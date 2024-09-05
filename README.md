@@ -33,6 +33,7 @@ sudo apt install ros-humble-ros-gzgarden
 pip install numpy
 pip install opencv-python
 pip install ultralytics
+pip install geopy
 ```
 
 ### Mundos y modelos
