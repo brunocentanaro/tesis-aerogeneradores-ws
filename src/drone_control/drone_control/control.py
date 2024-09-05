@@ -288,8 +288,10 @@ class OffboardControl(Node):
     def distanceWaypointCallback(self, msg):
         self.get_logger().info('Received: "%s"' % msg.data)
         try:
-            x, y, z = map(float, msg.data.split(','))
-            self.setNewSetpoint(x, y, z, self.currentYaw)
+            correctedMsg = msg.data.replace("(", "").replace(")", "")
+            self.get_logger().info('Received corrected: "%s"' % correctedMsg)
+            x, y, z = map(float, correctedMsg.split(','))
+            self.wayPointsGroupedForHeading.append([(x, y, z, 0.0, f"{x},{y},{z}")])
         except ValueError:
             self.get_logger().error('Invalid waypoint format. Expected format: "x,y,z"')
 
