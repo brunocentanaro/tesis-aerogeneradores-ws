@@ -30,6 +30,16 @@ class OrthogonalAlignmentState(InspectionState):
         self.distanceWaypointPublisher = self.create_publisher(String, '/drone_control/distance_waypoint', 10)
     
     def angle_to_rotate_callback(self, msg):
+        data = msg.data.split(',')
+
+        if len(data) == 2:
+            avg_dev = float(data[0])
+            orientation = data[1]
+
+            self.get_logger().info(f"Received avg_dev: {avg_dev}")
+            self.get_logger().info(f"Received orientation: {orientation}")
+        else:
+            self.get_logger().error("Received data does not match expected format.")
         pass
         # self.get_logger().info(f"angle_to_rotate_callback received: {msg.data}")
         # if not self.rotating:
