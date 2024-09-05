@@ -8,7 +8,7 @@ CENTERED_ROTOR_PERCENTAGE_THRESHOLD = 0.07
 
 # TODO: Change this to lidar
 VERTICAL_SEEN_DISTANCE = 30
-DISTANCE_TO_WIND_TURBINE = 60
+DISTANCE_TO_WIND_TURBINE = 74
 class OrthogonalAlignmentState(InspectionState):
     def __init__(self, state_machine):
         super().__init__('orthogonal_alignment_state', WindTurbineInspectionStage.ORTHOGONAL_ALIGNMENT, state_machine)

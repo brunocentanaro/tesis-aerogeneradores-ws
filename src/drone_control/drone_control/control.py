@@ -262,7 +262,7 @@ class OffboardControl(Node):
             y = bladeLength * math.cos(math.radians(angleFromHorizontal))
             z = bladeLength * math.sin(math.radians(angleFromHorizontal))
             newWaypoints1 = self.addIntermediateWaypoints(x, y, z, 0.0)
-            newWaypoints2 = self.addIntermediateWaypoints(x, -2 * y, 0, 0.0)
+            newWaypoints2 = [(x, -2 * y, 0, 0.0, EMPTY_MESSAGE)]
             newWaypoints3 = self.addIntermediateWaypoints(x, y, -z, 0.0)
             newWaypoints4 = self.addIntermediateWaypoints(x, 0, -bladeLength, 0.0)
             newWaypointsGroup = newWaypoints1 + newWaypoints2 + newWaypoints3 + newWaypoints4
