@@ -47,14 +47,6 @@ Y los mundos
 En `Tools/simulation/gz/models/OakD-Lite/model.sdf` realizar las siguientes modificaciones:
 
 ```diff
-<clip>
-    <near>0.1</near>
--    <far>100</far>
-+    <far>150</far>
-</clip>
-```
-
-```diff
 <sensor name="IMX214" type="camera">
 -	<pose>0.01233 -0.03 .01878 0 0 0</pose>
 +	<pose>0.01233 -0.03 -0.02 0 0 0</pose>
@@ -66,7 +58,8 @@ En `Tools/simulation/gz/models/OakD-Lite/model.sdf` realizar las siguientes modi
         </image>
         <clip>
         <near>0.1</near>
-        <far>150</far>
+-       <far>100</far>
++       <far>150</far>
         </clip>
     </camera>
     <always_on>1</always_on>
