@@ -163,7 +163,7 @@ class OffboardControl(Node):
         self.get_logger().info('Received: "%s"' % msg.data)
         try:
             newWaypoints = []
-            stepsPerDegree = 2
+            stepsPerDegree = 8
             
             degrees, distanceToWindTurbine = map(float, msg.data.split(','))
             previousHeading, previousX, previousY = 0, 0, 0
@@ -263,12 +263,14 @@ class OffboardControl(Node):
     def inspectWindTurbine(self, msg):
         self.get_logger().info('Received: "%s"' % msg.data)
         try:
-            tapia = [(0.0, 0.0, -41.25), 
-(0.0, 0.0, -3.75), 
-(0.0, -3.6067627668380737, 0.44083887338638306), 
-(0.0, -33.94490051269531, 22.482784271240234), 
-(0.0, 33.94490051269531, 22.482784271240234), 
-(0.0, 3.6067627668380737, 0.44083890318870544)]
+            tapia = [
+                (0.0, -3.6067627668380737, 0.44083887338638306), 
+                (0.0, -33.94490051269531, 21.5), 
+                (0.0, 33.94490051269531, 21.5), 
+                (0.0, 3.6067627668380737, 0.44083890318870544),
+                (0.0, 0.0, -41.25), 
+                (0.0, 0.0, -3.75), 
+                ]
             # bladeLength = float(msg.data)
             # angleFromHorizontal = 30.0
             # x = 0.0
