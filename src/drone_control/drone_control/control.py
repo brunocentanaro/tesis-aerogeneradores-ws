@@ -163,13 +163,20 @@ class OffboardControl(Node):
         self.get_logger().info('Received: "%s"' % msg.data)
         try:
             newWaypoints = []
+            stepsPerDegree = 8
+            
             degrees, distanceToWindTurbine = map(float, msg.data.split(','))
             previousHeading, previousX, previousY = 0, 0, 0
             
-            for i in range(math.floor(degrees)):
-                x = distanceToWindTurbine  - distanceToWindTurbine * math.cos(math.radians(i))
-                y = distanceToWindTurbine * math.sin(math.radians(i))
-                newYaw = -math.radians(i)
+            rangeToCover = math.floor(abs(degrees)) * stepsPerDegree
+            newWaypoints = []
+
+            if rangeToCover == 0:
+                return
+            for i in range(rangeToCover):
+                x = distanceToWindTurbine  - distanceToWindTurbine * math.cos(math.radians(i/ stepsPerDegree))
+                y = distanceToWindTurbine * math.sin(math.radians(i/ stepsPerDegree))
+                newYaw = -math.radians(i/ stepsPerDegree)
                 changeX, changeY, changeYaw = x - previousX, y - previousY, newYaw - previousHeading
                 
 
@@ -256,16 +263,36 @@ class OffboardControl(Node):
     def inspectWindTurbine(self, msg):
         self.get_logger().info('Received: "%s"' % msg.data)
         try:
-            bladeLength = float(msg.data)
-            angleFromHorizontal = 30.0
-            x = 0.0
-            y = bladeLength * math.cos(math.radians(angleFromHorizontal))
-            z = bladeLength * math.sin(math.radians(angleFromHorizontal))
-            newWaypoints1 = self.addIntermediateWaypoints(x, y, z, 0.0)
-            newWaypoints2 = self.addIntermediateWaypoints(x, -2 * y, 0, 0.0)
-            newWaypoints3 = self.addIntermediateWaypoints(x, y, -z, 0.0)
-            newWaypoints4 = self.addIntermediateWaypoints(x, 0, -bladeLength, 0.0)
-            newWaypointsGroup = newWaypoints1 + newWaypoints2 + newWaypoints3 + newWaypoints4
+            tapia = [
+                (0.0, -3.6067627668380737, 0.44083887338638306), 
+                (0.0, -33.94490051269531, 21.5), 
+                (0.0, 33.94490051269531, 21.5), 
+                (0.0, 3.6067627668380737, 0.44083890318870544),
+                (0.0, 0.0, -41.25), 
+                (0.0, 0.0, -3.75), 
+                ]
+            # bladeLength = float(msg.data)
+            # angleFromHorizontal = 30.0
+            # x = 0.0
+            # y = bladeLength * math.cos(math.radians(angleFromHorizontal))
+            # z = bladeLength * math.sin(math.radians(angleFromHorizontal))
+            previous = (0, 0, 0)
+            newWaypointsGroup = []
+            for i in range(6):
+                x, y, z = tapia[i]
+                xToUse, yToUse, zToUse = x - previous[0], y - previous[1], z - previous[2]
+                previous = (x, y, z)
+                if (i == 2 or i == 4):
+                    newWaypointsGroup.append((xToUse, yToUse, zToUse, 0.0, EMPTY_MESSAGE))
+                else:
+                    newWaypointsGroup.extend(self.addIntermediateWaypoints(xToUse, yToUse, zToUse, 0.0))
+            # newWaypoints1 = self.addIntermediateWaypoints(0, -2.1067628860473633, 0.44083893299102783, 0.0)
+            # newWaypoints2 = self.addIntermediateWaypoints((0, -33.65842628479004, 23.364463806152344, 0.0))
+            # newWaypoints3 = self.addIntermediateWaypoints(0, 33.65842628479004, 23.364463806152344, 0.0)
+            # newWaypoints4 = self.addIntermediateWaypoints(0, 2.1067628860473633, 0.44083893299102783, 0.0)
+            # newWaypoints5 = self.addIntermediateWaypoints(0, 0.0, -41.25, 0.0)
+            # newWaypoints6 = self.addIntermediateWaypoints(0, 0.0, -2.25, 0.0)
+            # newWaypointsGroup = newWaypoints1 + newWaypoints2 + newWaypoints3 + newWaypoints4 + newWaypoints5 + newWaypoints6
             latestWaypoint = newWaypointsGroup[-1]
             newWaypointsGroup[-1] = (latestWaypoint[0], latestWaypoint[1], latestWaypoint[2], latestWaypoint[3], 'wind turbine')
             self.wayPointsGroupedForHeading.append(newWaypointsGroup)
