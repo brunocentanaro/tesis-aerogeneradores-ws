@@ -143,7 +143,7 @@ class OffboardControl(Node):
 
     def localPositionCallback(self, msg):
         self.currentLocalPosition = [msg.x, msg.y, msg.z]
-    
+        
     def globalPositionCallback(self, msg):
         self.currentPosition = [msg.lat, msg.lon, msg.alt]
 
@@ -153,8 +153,14 @@ class OffboardControl(Node):
     def gpsWaypointCallback(self, msg):
         self.get_logger().info('Received: "%s"' % msg.data)
         try:
-            latitude, longitude = map(float, msg.data.split(','))
-            x,y,z,yaw = self.process_new_waypoint(latitude, longitude)
+            splitMsg = msg.data.split(',')
+            distanceToWaypoint = 0
+            if (len(splitMsg) == 2):
+                latitude, longitude = map(float, splitMsg)
+            if (len(splitMsg) == 3):
+                latitude, longitude, distanceToWaypoint = map(float, splitMsg)
+
+            x,y,z,yaw = self.process_new_waypoint(latitude, longitude, distanceToWaypoint)
             self.wayPointsGroupedForHeading.append([(x,y,z,yaw, f"{latitude},{longitude},{z}")])
         except ValueError:
             self.get_logger().error('Invalid waypoint format. Expected format: "latitude,longitude,altitude"')
@@ -322,7 +328,7 @@ class OffboardControl(Node):
         except ValueError:
             self.get_logger().error('Invalid waypoint format. Expected format: "x,y,z"')
 
-    def process_new_waypoint(self, latitude, longitude):
+    def process_new_waypoint(self, latitude, longitude, distanceToWaypoint):
         if not self.currentPosition or not self.currentHeading:
             self.get_logger().error('No GPS data available')
             self.processing_waypoint = False
@@ -331,9 +337,8 @@ class OffboardControl(Node):
         distance, yaw = getCoordinateInLineToWindTurbineXDistanceBefore(
             self.currentPosition[0], self.currentPosition[1],
             latitude, longitude,
-            40
+            distanceToWaypoint
         )
-        self.get_logger().info('Distance: %s, Yaw: %s' % (distance, yaw))
         distanceForward = distance * math.cos(yaw)
         distanceRight = distance * math.sin(yaw)
         return distanceForward, distanceRight, 0, yaw
@@ -438,3 +443,11 @@ def main(args=None):
 
 if __name__ == '__main__':
     main()
+
+
+# [mission_state_handler-3] [INFO] [1725919656.798099425] [mission_state_handler]: TakeoffState received: takeoff
+# [mission_state_handler-3] [INFO] [1725919656.812242838] [mission_state_handler]: Publishing waypoint
+# [mission_state_handler-3] [INFO] [1725919656.813268255] [mission_state_handler]: Publishing: "-34.627221,-54.957851"
+# [control-7] [INFO] [1725919656.820182722] [drone_control.control]: Received: "-34.627221,-54.957851"
+# [control-7] [INFO] [1725919656.820669800] [drone_control.control]: passing -34.62897298903423, -54.95847999162912, -34.627221, -54.957851, 53
+# [control-7] [INFO] [1725919656.821393652] [drone_control.control]: Distance: 149.73267257094273, Yaw: 0.2872517883070938

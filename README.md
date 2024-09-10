@@ -33,33 +33,64 @@ sudo apt install ros-humble-ros-gzgarden
 pip install numpy
 pip install opencv-python
 pip install ultralytics
+pip install geopy
 ```
 
 ### Mundos y modelos
 
 Copiar los modelos dentro de la instalacion de PX4 a
-Tools/simulation/gz/models
+`Tools/simulation/gz/models`
 
 Y los mundos
-Tools/simulation/gz/worlds
+`Tools/simulation/gz/worlds`
 
-En Tools/simulation/gz/models/OakD-Lite/model.sdf
-Modificar donde dice
+En `Tools/simulation/gz/models/OakD-Lite/model.sdf` realizar las siguientes modificaciones:
 
+```diff
+<sensor name="IMX214" type="camera">
+-	<pose>0.01233 -0.03 .01878 0 0 0</pose>
++	<pose>0.01233 -0.03 -0.02 0 0 0</pose>
+    <camera>
+        <horizontal_fov>1.204</horizontal_fov>
+        <image>
+        <width>1920</width>
+        <height>1080</height>
+        </image>
+        <clip>
+        <near>0.1</near>
+-       <far>100</far>
++       <far>150</far>
+        </clip>
+    </camera>
+    <always_on>1</always_on>
+    <update_rate>30</update_rate>
+    <visualize>true</visualize>
+    <topic>camera</topic>
+</sensor>
 ```
-<clip>
-    <near>0.1</near>
-    <far>100</far>
-</clip>
-```
 
-por
 
-```
-<clip>
-    <near>0.1</near>
-    <far>150</far>
-</clip>
+```diff
+<sensor name="StereoOV7251" type="depth_camera">
+-	<pose>0.01233 -0.03 .01878 0 0 0</pose>
++	<pose>0.01233 -0.03 -0.02 0 0 0</pose>
+        <camera>
+          <horizontal_fov>1.274</horizontal_fov>
+          <image>
+            <width>640</width>
+            <height>480</height>
+            <format>R_FLOAT32</format>
+          </image>
+          <clip>
+            <near>0.2</near>
+            <far>19.1</far>
+          </clip>
+        </camera>
+        <always_on>1</always_on>
+        <update_rate>30</update_rate>
+        <visualize>true</visualize>
+        <topic>depth_camera</topic>
+      </sensor>
 ```
 
 ### Compilar
