@@ -2,6 +2,9 @@ from wind_turbine_inspection.states.base import InspectionState, WindTurbineInsp
 from wind_turbine_inspection.states.constants import windTurbineTypeAndLocation
 from std_msgs.msg import String
 
+DESIRED_DISTANCE_TO_WT_ROTOR = 55
+DISTANCE_FROM_WAYPOINT_TO_ROTOR = 10
+
 class ApproachState(InspectionState):
     def __init__(self, state_machine):
         super().__init__('approach_state', WindTurbineInspectionStage.APPROACH, state_machine)
@@ -11,7 +14,8 @@ class ApproachState(InspectionState):
         self.get_logger().info('Publishing waypoint')
         newCoord = windTurbineTypeAndLocation[mission_param]['coordinates']
         height = windTurbineTypeAndLocation[mission_param]['height']
-        self.publish_waypoint(f"{newCoord['latitude']},{newCoord['longitude']}") 
+        distanceToWaypoint = DESIRED_DISTANCE_TO_WT_ROTOR + DISTANCE_FROM_WAYPOINT_TO_ROTOR
+        self.publish_waypoint(f"{newCoord['latitude']},{newCoord['longitude']},{distanceToWaypoint}") 
 
     def publish_waypoint(self, waypoint):
         msg = String()

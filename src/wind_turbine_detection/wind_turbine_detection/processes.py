@@ -7,7 +7,8 @@ import time
 
 # List of commands to run
 commands = [
-    "ros2 run ros_gz_image image_bridge /camera"
+    "ros2 run ros_gz_bridge parameter_bridge /camera@sensor_msgs/msg/Image@ignition.msgs.Image /camera_info@sensor_msgs/msg/CameraInfo@ignition.msgs.CameraInfo /depth_camera/points@sensor_msgs/msg/PointCloud2@gz.msgs.PointCloudPacked /depth_camera@sensor_msgs/msg/Image@ignition.msgs.Image"
+    #"ros2 run ros_gz_image image_bridge /camera"
 ]
 
 
