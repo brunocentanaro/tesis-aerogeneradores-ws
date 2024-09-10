@@ -7,7 +7,7 @@ class BackInspectionState(InspectionState):
 
         self.startInspectionPublisher = self.create_publisher(String, '/drone_control/inspect_wind_turbine', 10)
         self.distanceWaypointPublisher = self.create_publisher(String, '/drone_control/distance_waypoint', 10)
-        self.distanceWaypointPublisher.publish(String(data=f"{2, 0,0}"))
+        self.distanceWaypointPublisher.publish(String(data="2,0,0"))
         self.goneForward = False
 
 
