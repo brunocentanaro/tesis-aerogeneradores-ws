@@ -170,19 +170,20 @@ class OffboardControl(Node):
         try:
             newWaypoints = []
             stepsPerDegree = 8
-            
+
             degrees, distanceToWindTurbine = map(float, msg.data.split(','))
             previousHeading, previousX, previousY = 0, 0, 0
             
             rangeToCover = math.floor(abs(degrees)) * stepsPerDegree
+            direction = 1 if degrees > 0 else -1
             newWaypoints = []
 
             if rangeToCover == 0:
                 return
             for i in range(rangeToCover):
-                x = distanceToWindTurbine  - distanceToWindTurbine * math.cos(math.radians(i/ stepsPerDegree))
-                y = distanceToWindTurbine * math.sin(math.radians(i/ stepsPerDegree))
-                newYaw = -math.radians(i/ stepsPerDegree)
+                x = distanceToWindTurbine - distanceToWindTurbine * math.cos(math.radians(i/ stepsPerDegree))
+                y = direction * distanceToWindTurbine * math.sin(math.radians(i / stepsPerDegree))
+                newYaw = direction * -math.radians(i / stepsPerDegree) 
                 changeX, changeY, changeYaw = x - previousX, y - previousY, newYaw - previousHeading
                 
 
