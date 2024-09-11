@@ -1,9 +1,10 @@
 from wind_turbine_inspection.states.base import InspectionState, WindTurbineInspectionStage
 from std_msgs.msg import String
+import numpy as np
 
 SHOULD_ROTATE_WITHOUT_MOVING_THRESHOLD = 10
 MIN_ANGLE_TO_ROTATE = 4
-CENTERED_ROTOR_PERCENTAGE_THRESHOLD = 0.07
+CENTERED_ROTOR_PERCENTAGE_THRESHOLD = 0.1
 
 
 # TODO: Change this to lidar
@@ -70,7 +71,7 @@ class OrthogonalAlignmentState(InspectionState):
             if len(self.lastFiveWTCenteredAngles) > 5:
                 self.lastFiveWTCenteredAngles.pop(0)
 
-            lastFiveDeviationsAvg = sum(self.lastFiveDevs) / len(self.lastFiveDevs) if len(self.lastFiveDevs) > 0 else 0
+            lastDeviationMedian = np.median(self.lastFiveDevs) if len(self.lastFiveDevs) > 0 else 0
             if (hadToCorrect):
                 if (self.inCorrectPositionCounter > self.maxInCorrectPositionCounter):
                     self.maxInCorrectPositionCounter = self.inCorrectPositionCounter
@@ -78,14 +79,21 @@ class OrthogonalAlignmentState(InspectionState):
                 self.inCorrectPositionCounter = 0
             else:
                 self.inCorrectPositionCounter += 1
+                factor = 0.3333
+                degrees = (lastDeviationMedian - (lastDeviationMedian/abs(lastDeviationMedian))*5 ) * factor if lastDeviationMedian != 0 else 0
                 if (self.inCorrectPositionCounter > 30):
-                    self.inAnOperation = True
-                    self.get_logger().info(f"lastFiveDeviations: {lastFiveDeviationsAvg}")
-                    factor = 0.25
-                    degrees = lastFiveDeviationsAvg * factor
-                    self.moveCenteredPublisher.publish(String(data=f"{degrees},{DISTANCE_TO_WIND_TURBINE}"))
-            self.lastFiveDevs.append(avgDevWithSign)
-            if len(self.lastFiveDevs) > 5:
+                    if (abs(degrees) > 4):
+                        self.inAnOperation = True
+                        self.get_logger().info(f"lastFiveDeviations: {lastDeviationMedian}")
+                        
+                        self.moveCenteredPublisher.publish(String(data=f"{degrees},{DISTANCE_TO_WIND_TURBINE}"))
+                        self.lastFiveDevs = []
+                        self.inCorrectPositionCounter = 0
+                    else:
+                        self.get_logger().info(f"lastFiveDeviationsMedianDegrees: {lastDeviationMedian}, {degrees}")
+            if (avgDevWithSign != 0):
+                self.lastFiveDevs.append(avgDevWithSign)
+            if len(self.lastFiveDevs) > 30:
                 self.lastFiveDevs.pop(0)
         except ValueError:
             self.get_logger().error(f"angle_to_have_wt_centered_callback received a non float value: {msg.data}")
