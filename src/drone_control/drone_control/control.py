@@ -174,11 +174,12 @@ class OffboardControl(Node):
             degrees, distanceToWindTurbine = map(float, msg.data.split(','))
             previousHeading, previousX, previousY = 0, 0, 0
             
-            rangeToCover = math.floor(abs(degrees)) * stepsPerDegree
+            rangeToCover = math.floor(abs(degrees * stepsPerDegree)) 
             direction = 1 if degrees > 0 else -1
             newWaypoints = []
 
             if rangeToCover == 0:
+                self.wayPointsGroupedForHeading.append([(0,0,0,0,'ended rotation')])
                 return
             for i in range(rangeToCover):
                 x = distanceToWindTurbine - distanceToWindTurbine * math.cos(math.radians(i/ stepsPerDegree))
@@ -203,9 +204,10 @@ class OffboardControl(Node):
             degrees = float(msg.data)
             stepsPerDegree = 2
             previousYaw = 0
-            rangeToCover = math.floor(abs(degrees)) * stepsPerDegree
+            rangeToCover = math.floor(abs(degrees* stepsPerDegree))
             newWaypoints = []
             if rangeToCover == 0:
+                self.wayPointsGroupedForHeading.append([(0,0,0,0,'ended rotation')])
                 return
             for i in range(math.floor(abs(degrees)) * stepsPerDegree):
                 newYaw = math.radians(i) * (1 if degrees > 0 else -1) / stepsPerDegree
