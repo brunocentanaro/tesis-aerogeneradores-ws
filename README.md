@@ -8,6 +8,7 @@
 - [PX4](https://docs.px4.io/main/en/ros2/user_guide#installation-setup)
 
 Despues de clonar el repositorio de PX4:
+
 ```
 git checkout f8a42bcd58
 git submodule update --init --recursive
@@ -69,6 +70,26 @@ En `Tools/simulation/gz/models/OakD-Lite/model.sdf` realizar las siguientes modi
 </sensor>
 ```
 
+<sensor name="IMX214" type="camera">
+        <pose>0.01233 -0.03 -0.02 0 0 0</pose>
+        <camera>
+          <horizontal_fov>1.204</horizontal_fov>
+          <image>
+          <format>R8G8B8</format>
+             <format>R8G8B8</format>
+           <width>1280</width>
+            <height>960</height>
+          </image>
+          <clip>
+            <near>0.1</near>
+            <far>200</far>
+          </clip>
+        </camera>
+        <always_on>1</always_on>
+        <update_rate>30</update_rate>
+        <visualize>true</visualize>
+        <topic>camera</topic>
+      </sensor>
 
 ```diff
 <sensor name="StereoOV7251" type="depth_camera">
