@@ -30,7 +30,6 @@ class ImageSubscriber(Node):
             10)
         self.subscription
         self.br = CvBridge()
-        self.angleToRotatePublisher = self.create_publisher(String, 'angle_to_rotate_centered_on_wt', 10)
         self.angleToHaveWTCenteredOnImagePublisher = self.create_publisher(String, 'angle_to_have_wt_centered_on_image', 10)
         # print(model.names)
         # print(modelNotTurbine.names)
@@ -119,25 +118,20 @@ class ImageSubscriber(Node):
                 cv2.circle(img3, (int(intersectionsAverageX), int(intersectionsAverageY)), 5, (255, 0, 0), -1)
                 percentageInImage = (x1 + x2) / 2 / img.shape[1]
                 fieldOfView = math.degrees(CAMERA_FOV)
-                self.angleToHaveWTCenteredOnImagePublisher.publish(String(data=f"{percentageInImage * fieldOfView - fieldOfView / 2},{intersectionsAverageY}"))
+
+                vertical_lines = []
+                if lines is not None:
+                    for line in lines:
+                        x1, y1, x2, y2 = line[0]
+                        if is_vertical(x1, y1, x2, y2):
+                            vertical_lines.append(line)
+
+                # avg_dev, orientation = determine_direction(self, y_inverted_found)
+                avg_dev_with_sign = determine_direction_2(self, rotorY, vertical_lines)
+                self.angleToHaveWTCenteredOnImagePublisher.publish(String(data=f"{percentageInImage * fieldOfView - fieldOfView / 2},{intersectionsAverageY},{avg_dev_with_sign}"))
 
             # self.get_logger().info(f"Y Inverted Shape found")
             cv2.imshow('Y Inverted Shape', img3)
-
-            vertical_lines = []
-            if lines is not None:
-                for line in lines:
-                    x1, y1, x2, y2 = line[0]
-                    if is_vertical(x1, y1, x2, y2):
-                        vertical_lines.append(line)
-
-            # avg_dev, orientation = determine_direction(self, y_inverted_found)
-            avg_dev, orientation = determine_direction_2(self, rotorY, vertical_lines)
-
-            if orientation:
-                data_to_publish = f"{avg_dev},{orientation}"
-                self.angleToRotatePublisher.publish(String(data=data_to_publish))
-
         
         # Dibujar las líneas verticales en la imagen
         # for line in vertical_lines:
@@ -376,7 +370,7 @@ def determine_direction_2(self, rotorY, vertical_lines, margin_error=5):
         elif min_x_l > max_x_u:
             orientation = -1 # Sentido horario: -1
 
-    return avg_dev, orientation
+    return (avg_dev * orientation)
 
 def avg_line(lines):
     sum_x1, sum_y1, sum_x2, sum_y2 = 0, 0, 0, 0
