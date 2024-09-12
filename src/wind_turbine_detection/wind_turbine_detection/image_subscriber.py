@@ -23,12 +23,18 @@ CAMERA_FOV = 1.204 # radianes
 class ImageSubscriber(Node):
     def __init__(self):
         super().__init__('image_subscriber')
-        self.subscription = self.create_subscription(
+        # self.subscription = self.create_subscription(
+        #     Image,
+        #     'camera',
+        #     self.listener_callback,
+        #     10)
+        # self.subscription
+        self.depth_subscription = self.create_subscription(
             Image,
-            'camera',
-            self.listener_callback,
+            'depth_camera',
+            self.depth_listener_callback,
             10)
-        self.subscription
+        self.depth_subscription
         self.br = CvBridge()
         self.angleToHaveWTCenteredOnImagePublisher = self.create_publisher(String, 'angle_to_have_wt_centered_on_image', 10)
         # print(model.names)
@@ -156,6 +162,81 @@ class ImageSubscriber(Node):
 
         cv2.waitKey(1)
 
+    def depth_listener_callback(self, data):
+        # Convertir el mensaje de imagen de ROS a una imagen de OpenCV
+        cv_image = self.br.imgmsg_to_cv2(data, desired_encoding='passthrough')
+
+        # Manejar valores NaN o infinitos
+        cv_image = np.nan_to_num(cv_image, nan=0.0, posinf=0.0, neginf=0.0)
+
+        # Definir los valores mínimo y máximo para la normalización
+        min_distance = np.min(cv_image[cv_image > 0])
+        max_distance = np.max(cv_image)
+
+        # Normalizar la imagen de profundidad
+        cv_normalized = (cv_image - min_distance) / (max_distance - min_distance)
+        cv_normalized = np.clip(cv_normalized, 0, 1)
+
+        # Escalar a 0-255 y convertir a uint8
+        cv_8u = (cv_normalized * 255).astype(np.uint8)
+
+        # Aplicar un mapa de colores para mejor visualización
+        cv_colored = cv2.applyColorMap(cv_8u, cv2.COLORMAP_JET)
+
+        # Mostrar la imagen
+        cv2.imshow('Imagen de Profundidad', cv_colored)
+        cv2.waitKey(1)
+        # img_normalized = cv2.normalize(cv_image, None, 0, 1, cv2.NORM_MINMAX)
+
+        # img_clipped = np.clip(img_normalized, 0, 255)
+
+        # img_8u = img_clipped.astype(np.uint8)
+
+        # cv2.imshow('Converted Image', img_8u)
+
+        # blurred = cv2.GaussianBlur(
+        #     cv_image_uint8,
+        #     (9, 9), # size of the Gaussian kernel
+        #     2 # standard deviation in the X direction
+        # )
+
+        # # Apply Canny edge detector
+        # edges = cv2.Canny(
+        #     blurred, 
+        #     threshold1=10, # lower threshold for the hysteresis procedure 
+        #     threshold2=150, # upper threshold for the hysteresis procedure 
+        #     apertureSize=3 # size of the Sobel kernel used for finding image gradients. It can be 1, 3, 5, or 7.
+        # )
+
+        # # Apply probabilistic Hough Line Transform
+        # lines = cv2.HoughLinesP(
+        #     edges,
+        #     rho=1, # Distance resolution in pixels
+        #     theta=np.pi/180, # Angle resolution in radians
+        #     threshold=50, # Min number of votes/intersections for valid line
+        #     minLineLength=40, # Min allowed length of line
+        #     maxLineGap=25 # Max allowed gap between points on the same line to link them
+        # )
+
+        # if lines is None:
+        #     return
+        
+        # for line in lines:
+        #     x1, y1, x2, y2 = line[0]
+        #     cv2.line(image, (x1, y1), (x2, y2), (0, 255, 0), 2)
+        # cv2.imshow('All detected lines', image)
+        cv2.waitKey(1)
+
+def custom_cv2_normalize(arr, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX):
+    # Replace inf and -inf with finite large/small values
+    arr = np.where(np.isposinf(arr), np.finfo(np.float32).max, arr)
+    arr = np.where(np.isneginf(arr), np.finfo(np.float32).min, arr)
+    
+    # Use OpenCV's normalize function
+    # normalized_arr = np.empty_like(arr, dtype=np.float32)  # Ensure the output is float32
+    cv2.normalize(arr, arr, alpha=alpha, beta=beta, norm_type=norm_type)
+    
+    return arr
 
 # Determina si una línea es vertical dentro de un margen de error
 def is_vertical(x1, y1, x2, y2, error_margin=15):
