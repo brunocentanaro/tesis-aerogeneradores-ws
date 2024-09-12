@@ -21,7 +21,7 @@ class OrthogonalAlignmentState(InspectionState):
         self.inAnOperation = False
         self.lastFiveWTCenteredAngles = []
         self.lastFivePercentagesInY = []
-        self.lastFiveDevs = []
+        self.lastDevs = []
         self.changeHeightPublisher = self.create_publisher(String, '/drone_control/change_height', 10)
         self.inCorrectPositionCounter = 0
         self.maxInCorrectPositionCounter = 0
@@ -71,7 +71,7 @@ class OrthogonalAlignmentState(InspectionState):
             if len(self.lastFiveWTCenteredAngles) > 5:
                 self.lastFiveWTCenteredAngles.pop(0)
 
-            lastDeviationMedian = np.median(self.lastFiveDevs) if len(self.lastFiveDevs) > 0 else 0
+            lastDeviationMedian = np.median(self.lastDevs) if len(self.lastDevs) > 0 else 0
             if (hadToCorrect):
                 if (self.inCorrectPositionCounter > self.maxInCorrectPositionCounter):
                     self.maxInCorrectPositionCounter = self.inCorrectPositionCounter
@@ -87,14 +87,19 @@ class OrthogonalAlignmentState(InspectionState):
                         self.get_logger().info(f"lastFiveDeviations: {lastDeviationMedian}")
                         
                         self.moveCenteredPublisher.publish(String(data=f"{degrees},{DISTANCE_TO_WIND_TURBINE}"))
-                        self.lastFiveDevs = []
+                        self.lastDevs = []
                         self.inCorrectPositionCounter = 0
                     else:
+                        self.get_logger().info(f"We are orthogonal!")
                         self.get_logger().info(f"lastFiveDeviationsMedianDegrees: {lastDeviationMedian}, {degrees}")
+                        # self.todoDeleteAlreadyRotated = True
+                        # Aca deberiamos avisar que ya se peude empezar a acercar
+                        # Tal vez si huvo cierta candidad de señales de que estamos bien seguidas
+
             if (avgDevWithSign != 0):
-                self.lastFiveDevs.append(avgDevWithSign)
-            if len(self.lastFiveDevs) > 30:
-                self.lastFiveDevs.pop(0)
+                self.lastDevs.append(avgDevWithSign)
+            if len(self.lastDevs) > 30:
+                self.lastDevs.pop(0)
         except ValueError:
             self.get_logger().error(f"angle_to_have_wt_centered_callback received a non float value: {msg.data}")
 
