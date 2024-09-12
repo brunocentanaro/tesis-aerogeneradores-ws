@@ -20,3 +20,4 @@ class FrontInspectionState(InspectionState):
 
     def waypoint_reached_callback(self, msg):
         self.get_logger().info(f"FrontInspectionState received: {msg.data}")
+        self.advance_to_next_state()

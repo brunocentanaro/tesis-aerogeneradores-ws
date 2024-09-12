@@ -143,7 +143,7 @@ class OffboardControl(Node):
 
     def localPositionCallback(self, msg):
         self.currentLocalPosition = [msg.x, msg.y, msg.z]
-    
+        
     def globalPositionCallback(self, msg):
         self.currentPosition = [msg.lat, msg.lon, msg.alt]
 
@@ -153,8 +153,14 @@ class OffboardControl(Node):
     def gpsWaypointCallback(self, msg):
         self.get_logger().info('Received: "%s"' % msg.data)
         try:
-            latitude, longitude = map(float, msg.data.split(','))
-            x,y,z,yaw = self.process_new_waypoint(latitude, longitude)
+            splitMsg = msg.data.split(',')
+            distanceToWaypoint = 0
+            if (len(splitMsg) == 2):
+                latitude, longitude = map(float, splitMsg)
+            if (len(splitMsg) == 3):
+                latitude, longitude, distanceToWaypoint = map(float, splitMsg)
+
+            x,y,z,yaw = self.process_new_waypoint(latitude, longitude, distanceToWaypoint)
             self.wayPointsGroupedForHeading.append([(x,y,z,yaw, f"{latitude},{longitude},{z}")])
         except ValueError:
             self.get_logger().error('Invalid waypoint format. Expected format: "latitude,longitude,altitude"')
@@ -163,13 +169,22 @@ class OffboardControl(Node):
         self.get_logger().info('Received: "%s"' % msg.data)
         try:
             newWaypoints = []
+            stepsPerDegree = 8
+
             degrees, distanceToWindTurbine = map(float, msg.data.split(','))
             previousHeading, previousX, previousY = 0, 0, 0
             
-            for i in range(math.floor(degrees)):
-                x = distanceToWindTurbine  - distanceToWindTurbine * math.cos(math.radians(i))
-                y = distanceToWindTurbine * math.sin(math.radians(i))
-                newYaw = -math.radians(i)
+            rangeToCover = math.floor(abs(degrees * stepsPerDegree)) 
+            direction = 1 if degrees > 0 else -1
+            newWaypoints = []
+
+            if rangeToCover == 0:
+                self.wayPointsGroupedForHeading.append([(0,0,0,0,'ended rotation')])
+                return
+            for i in range(rangeToCover):
+                x = distanceToWindTurbine - distanceToWindTurbine * math.cos(math.radians(i/ stepsPerDegree))
+                y = direction * distanceToWindTurbine * math.sin(math.radians(i / stepsPerDegree))
+                newYaw = direction * -math.radians(i / stepsPerDegree) 
                 changeX, changeY, changeYaw = x - previousX, y - previousY, newYaw - previousHeading
                 
 
@@ -189,9 +204,10 @@ class OffboardControl(Node):
             degrees = float(msg.data)
             stepsPerDegree = 2
             previousYaw = 0
-            rangeToCover = math.floor(abs(degrees)) * stepsPerDegree
+            rangeToCover = math.floor(abs(degrees* stepsPerDegree))
             newWaypoints = []
             if rangeToCover == 0:
+                self.wayPointsGroupedForHeading.append([(0,0,0,0,'ended rotation')])
                 return
             for i in range(math.floor(abs(degrees)) * stepsPerDegree):
                 newYaw = math.radians(i) * (1 if degrees > 0 else -1) / stepsPerDegree
@@ -256,16 +272,36 @@ class OffboardControl(Node):
     def inspectWindTurbine(self, msg):
         self.get_logger().info('Received: "%s"' % msg.data)
         try:
-            bladeLength = float(msg.data)
-            angleFromHorizontal = 30.0
-            x = 0.0
-            y = bladeLength * math.cos(math.radians(angleFromHorizontal))
-            z = bladeLength * math.sin(math.radians(angleFromHorizontal))
-            newWaypoints1 = self.addIntermediateWaypoints(x, y, z, 0.0)
-            newWaypoints2 = self.addIntermediateWaypoints(x, -2 * y, 0, 0.0)
-            newWaypoints3 = self.addIntermediateWaypoints(x, y, -z, 0.0)
-            newWaypoints4 = self.addIntermediateWaypoints(x, 0, -bladeLength, 0.0)
-            newWaypointsGroup = newWaypoints1 + newWaypoints2 + newWaypoints3 + newWaypoints4
+            tapia = [
+                (0.0, -3.6067627668380737, 0.44083887338638306), 
+                (0.0, -33.94490051269531, 21.5), 
+                (0.0, 33.94490051269531, 21.5), 
+                (0.0, 3.6067627668380737, 0.44083890318870544),
+                (0.0, 0.0, -41.25), 
+                (0.0, 0.0, -3.75), 
+                ]
+            # bladeLength = float(msg.data)
+            # angleFromHorizontal = 30.0
+            # x = 0.0
+            # y = bladeLength * math.cos(math.radians(angleFromHorizontal))
+            # z = bladeLength * math.sin(math.radians(angleFromHorizontal))
+            previous = (0, 0, 0)
+            newWaypointsGroup = []
+            for i in range(6):
+                x, y, z = tapia[i]
+                xToUse, yToUse, zToUse = x - previous[0], y - previous[1], z - previous[2]
+                previous = (x, y, z)
+                if (i == 2 or i == 4):
+                    newWaypointsGroup.append((xToUse, yToUse, zToUse, 0.0, EMPTY_MESSAGE))
+                else:
+                    newWaypointsGroup.extend(self.addIntermediateWaypoints(xToUse, yToUse, zToUse, 0.0))
+            # newWaypoints1 = self.addIntermediateWaypoints(0, -2.1067628860473633, 0.44083893299102783, 0.0)
+            # newWaypoints2 = self.addIntermediateWaypoints((0, -33.65842628479004, 23.364463806152344, 0.0))
+            # newWaypoints3 = self.addIntermediateWaypoints(0, 33.65842628479004, 23.364463806152344, 0.0)
+            # newWaypoints4 = self.addIntermediateWaypoints(0, 2.1067628860473633, 0.44083893299102783, 0.0)
+            # newWaypoints5 = self.addIntermediateWaypoints(0, 0.0, -41.25, 0.0)
+            # newWaypoints6 = self.addIntermediateWaypoints(0, 0.0, -2.25, 0.0)
+            # newWaypointsGroup = newWaypoints1 + newWaypoints2 + newWaypoints3 + newWaypoints4 + newWaypoints5 + newWaypoints6
             latestWaypoint = newWaypointsGroup[-1]
             newWaypointsGroup[-1] = (latestWaypoint[0], latestWaypoint[1], latestWaypoint[2], latestWaypoint[3], 'wind turbine')
             self.wayPointsGroupedForHeading.append(newWaypointsGroup)
@@ -295,7 +331,7 @@ class OffboardControl(Node):
         except ValueError:
             self.get_logger().error('Invalid waypoint format. Expected format: "x,y,z"')
 
-    def process_new_waypoint(self, latitude, longitude):
+    def process_new_waypoint(self, latitude, longitude, distanceToWaypoint):
         if not self.currentPosition or not self.currentHeading:
             self.get_logger().error('No GPS data available')
             self.processing_waypoint = False
@@ -304,9 +340,8 @@ class OffboardControl(Node):
         distance, yaw = getCoordinateInLineToWindTurbineXDistanceBefore(
             self.currentPosition[0], self.currentPosition[1],
             latitude, longitude,
-            40
+            distanceToWaypoint
         )
-        self.get_logger().info('Distance: %s, Yaw: %s' % (distance, yaw))
         distanceForward = distance * math.cos(yaw)
         distanceRight = distance * math.sin(yaw)
         return distanceForward, distanceRight, 0, yaw
@@ -411,3 +446,11 @@ def main(args=None):
 
 if __name__ == '__main__':
     main()
+
+
+# [mission_state_handler-3] [INFO] [1725919656.798099425] [mission_state_handler]: TakeoffState received: takeoff
+# [mission_state_handler-3] [INFO] [1725919656.812242838] [mission_state_handler]: Publishing waypoint
+# [mission_state_handler-3] [INFO] [1725919656.813268255] [mission_state_handler]: Publishing: "-34.627221,-54.957851"
+# [control-7] [INFO] [1725919656.820182722] [drone_control.control]: Received: "-34.627221,-54.957851"
+# [control-7] [INFO] [1725919656.820669800] [drone_control.control]: passing -34.62897298903423, -54.95847999162912, -34.627221, -54.957851, 53
+# [control-7] [INFO] [1725919656.821393652] [drone_control.control]: Distance: 149.73267257094273, Yaw: 0.2872517883070938

@@ -30,7 +30,6 @@ class ImageSubscriber(Node):
             10)
         self.subscription
         self.br = CvBridge()
-        self.angleToRotatePublisher = self.create_publisher(String, 'angle_to_rotate_centered_on_wt', 10)
         self.angleToHaveWTCenteredOnImagePublisher = self.create_publisher(String, 'angle_to_have_wt_centered_on_image', 10)
         # print(model.names)
         # print(modelNotTurbine.names)
@@ -113,55 +112,26 @@ class ImageSubscriber(Node):
                 intersectionsAverageY += y
 
             if intersections:
+                rotorY = intersectionsAverageY / len(intersections)
                 intersectionsAverageX = intersectionsAverageX / len(intersections) / img.shape[1]
                 intersectionsAverageY = intersectionsAverageY / len(intersections) / img.shape[0]
                 cv2.circle(img3, (int(intersectionsAverageX), int(intersectionsAverageY)), 5, (255, 0, 0), -1)
                 percentageInImage = (x1 + x2) / 2 / img.shape[1]
                 fieldOfView = math.degrees(CAMERA_FOV)
-                self.angleToHaveWTCenteredOnImagePublisher.publish(String(data=f"{percentageInImage * fieldOfView - fieldOfView / 2},{intersectionsAverageY}"))
 
+                vertical_lines = []
+                if lines is not None:
+                    for line in lines:
+                        x1, y1, x2, y2 = line[0]
+                        if is_vertical(x1, y1, x2, y2):
+                            vertical_lines.append(line)
+
+                # avg_dev, orientation = determine_direction(self, y_inverted_found)
+                avg_dev_with_sign = determine_direction_2(self, rotorY, vertical_lines)
+                self.angleToHaveWTCenteredOnImagePublisher.publish(String(data=f"{percentageInImage * fieldOfView - fieldOfView / 2},{intersectionsAverageY},{avg_dev_with_sign}"))
+
+            # self.get_logger().info(f"Y Inverted Shape found")
             cv2.imshow('Y Inverted Shape', img3)
-
-            avg_dev, orientation = determine_direction(y_inverted_found)
-            data_to_publish = f"{avg_dev},{orientation}"
-            self.angleToRotatePublisher.publish(String(data=data_to_publish))
-
-        vertical_lines = []
-        horizontal_lines = []
-        other_lines = []
-
-        if lines is not None:
-            for line in lines:
-                x1, y1, x2, y2 = line[0]
-                if is_vertical(x1, y1, x2, y2):
-                    vertical_lines.append(line)
-                elif is_horizontal(x1, y1, x2, y2):
-                    horizontal_lines.append(line)
-                else:
-                    other_lines.append(line)
-
-        # Dibujar las líneas restantes (ni verticales ni horizontales) en la imagen
-        for line in other_lines:
-            x1, y1, x2, y2 = line[0]
-            cv2.line(img2, (x1, y1), (x2, y2), (255, 0, 0), 2) # LINEAS RESTANTES EN AZUL
-        
-        rotor_position = find_rotor_position(other_lines)
-
-        if rotor_position:
-            cv2.circle(img2, rotor_position, 5, (0, 0, 255), -1) # POSIBLE ROTOR ROJO
-            rotor_x, rotor_y = rotor_position
-            for line in vertical_lines:
-                x1, y1, x2, y2 = line[0]
-                if y1 < rotor_y and y2 < rotor_y:
-                    cv2.line(img2, (x1, y1), (x2, y2), (0, 255, 255), 2) # AMARILLO LINEAS ARRIBA DEL ROTOR
-                elif y1 > rotor_y and y2 > rotor_y:
-                    cv2.line(img2, (x1, y1), (x2, y2), (255, 0, 255), 2) # MAGENTA LINEAS DEBAJO DEL ROTOR
-                else:
-                    cv2.line(img2, (x1, y1), (x2, y2), (0, 255, 0), 2) # VERDE LINEAS CRUZANDO EL ROTOR
-        else:
-            print("No possible rotor found")
-
-        cv2.imshow('Remaining Lines', img2)
         
         # Dibujar las líneas verticales en la imagen
         # for line in vertical_lines:
@@ -186,20 +156,6 @@ class ImageSubscriber(Node):
 
         cv2.waitKey(1)
 
-# Busca la intersección más alta de para las lineas que tengan mas de min_angle entre ellas
-def find_rotor_position(lines, min_angle=10):
-    intersections = []
-    for line1, line2 in combinations(lines, 2):
-        if calculate_angle_between_lines(slope(line1), slope(line2)) > min_angle:
-            intersection = find_line_intersection(line1, line2)
-
-            if intersection:
-                intersections.append(intersection)
-    
-    if intersections:
-        rotor_position = min(intersections, key=lambda point: point[1])
-        return rotor_position
-    return None
 
 # Determina si una línea es vertical dentro de un margen de error
 def is_vertical(x1, y1, x2, y2, error_margin=15):
@@ -326,7 +282,9 @@ def find_line_intersection(line1, line2, tolerance=0.1):
 
     return (int(x), int(y))
 
-def determine_direction(lines, error_margin=5):
+# NO ANDA MUY BIEN PERO LO DEJO POR SI ACASO
+# precondicion: estar a la altura del rotor
+def determine_direction(self, lines, error_margin=3):
     vertical_edge = None
     left_edge = None
     right_edge = None
@@ -334,7 +292,7 @@ def determine_direction(lines, error_margin=5):
         m = slope(line)
         if m == float('inf'):
             vertical_edge = line
-        elif m  > 0:
+        elif m > 0:
             left_edge = line
         else:
             right_edge = line
@@ -349,18 +307,88 @@ def determine_direction(lines, error_margin=5):
     left_angle = 180 - calculate_angle_between_lines(left_m, vertical_m)
     right_angle = 180 - calculate_angle_between_lines(vertical_m, right_m)
 
-    dev1 = abs(left_angle - 120)
-    dev2 = abs(right_angle - 120)
+    dev_left = abs(left_angle - 120)
+    dev_right = abs(right_angle - 120)
 
-    avg_dev = (dev1 + dev2) / 3
+    avg_dev = (dev_left + dev_right) / 2
 
-    orientation = 0 # no me debo mover
-    if (left_angle < 120 - error_margin or right_angle > 120 + error_margin):
-        orientation = 1  # Positivo, gira en sentido antihorario
-    elif (left_angle > 120 + error_margin or right_angle < 120 - error_margin):
-        orientation = -1  # Negativo, gira en sentido horario
+    if abs(dev_left - dev_right) > error_margin:
+        if dev_left > dev_right:
+            if left_angle < 120 - error_margin:
+                orientation = -1  # Negativo, gira en sentido horario
+            elif left_angle > 120 + error_margin:
+                orientation = 1  # Positivo, gira en sentido antihorario
+            else:
+                orientation = 0  # No me debo mover
+        else:
+            if right_angle < 120 - error_margin:
+                orientation = 1  # Positivo, gira en sentido antihorario
+            elif right_angle > 120 + error_margin:
+                orientation = -1  # Negativo, gira en sentido horario
+            else:
+                orientation = 0  # No me debo mover
+    else: # Si las desviaciones son parecidas le hago caso al angulo derecho
+        if right_angle < 120 - error_margin:
+            orientation = 1  # Positivo, gira en sentido antihorario
+        elif right_angle > 120 + error_margin:
+            orientation = -1  # Negativo, gira en sentido horario
+        else:
+            orientation = 0  # No me debo mover
 
     return avg_dev, orientation
+
+def determine_direction_2(self, rotorY, vertical_lines, margin_error=5):
+    upper_lines = []
+    lower_lines = []
+    for line in vertical_lines:
+        x1, y1, x2, y2 = line[0]
+        if (y1 < rotorY or y2 < rotorY):
+            upper_lines.append(line)
+        if (y1 > rotorY or y2 > rotorY):
+            lower_lines.append(line)
+
+    if (not upper_lines) or (not lower_lines):
+        return  None, None
+    
+    upper_line = avg_line(upper_lines)
+    ux1, uy1, ux2, uy2 = upper_line[0]
+    lower_line = avg_line(lower_lines)
+    lx1, ly1, lx2, ly2 = lower_line[0]
+
+    max_x_l = max(lx1, lx2)
+    min_x_l = min(lx1, lx2)
+
+    min_x_u = min(ux1, ux2)
+    max_x_u = max(ux1, ux2)
+
+    avg_dev = (abs(max_x_l - min_x_u) + abs(min_x_l - max_x_u))/2
+
+    orientation = 0
+    if abs(max_x_l - min_x_u) > margin_error and abs(min_x_l - max_x_u) > margin_error:
+        if max_x_l < min_x_u:
+            orientation = 1 # Sentido antihorario: 1
+        elif min_x_l > max_x_u:
+            orientation = -1 # Sentido horario: -1
+
+    return (avg_dev * orientation)
+
+def avg_line(lines):
+    sum_x1, sum_y1, sum_x2, sum_y2 = 0, 0, 0, 0
+    n = len(lines)
+
+    for line in lines:
+        x1, y1, x2, y2 = line[0]
+        sum_x1 += x1
+        sum_y1 += y1
+        sum_x2 += x2
+        sum_y2 += y2
+
+    avg_x1 = sum_x1 / n
+    avg_y1 = sum_y1 / n
+    avg_x2 = sum_x2 / n
+    avg_y2 = sum_y2 / n
+
+    return np.array([[avg_x1, avg_y1, avg_x2, avg_y2]])
 
 def main(args=None):
     rclpy.init(args=args)
