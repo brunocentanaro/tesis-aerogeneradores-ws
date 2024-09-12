@@ -178,7 +178,10 @@ def plot_data_color_connected(data, title, save=False, show=True, dpi=600):
         ax.plot(d[0], d[1], d[2], lw=2, c=color)
         last_point = [[d[0, -1]], [d[1, -1]], [d[2, -1]]]
     ax.legend()
-    plt.savefig(f'data/fig/{title}_plot.png')
+    ax.set_xlabel('Eje X')
+    ax.set_ylabel('Eje Y')
+    ax.set_zlabel('Eje Z')
+    plt.savefig(f'data/{title}_plot.png')
     if show:
         plt.show()
         plt.clf()
