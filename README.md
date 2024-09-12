@@ -50,7 +50,7 @@ En `Tools/simulation/gz/models/OakD-Lite/model.sdf` realizar las siguientes modi
 ```diff
 <sensor name="IMX214" type="camera">
 -	<pose>0.01233 -0.03 .01878 0 0 0</pose>
-+	<pose>0.01233 -0.03 -0.02 0 0 0</pose>
++	<pose>0.01233 -0.03 -0.042 0 0 0</pose>
     <camera>
         <horizontal_fov>1.204</horizontal_fov>
         <image>
@@ -77,7 +77,7 @@ En `Tools/simulation/gz/models/OakD-Lite/model.sdf` realizar las siguientes modi
 ```diff
 <sensor name="StereoOV7251" type="depth_camera">
 -	<pose>0.01233 -0.03 .01878 0 0 0</pose>
-+	<pose>0.01233 -0.03 -0.02 0 0 0</pose>
++	<pose>0.01233 -0.03 -0.042 0 0 0</pose>
         <camera>
           <horizontal_fov>1.274</horizontal_fov>
           <image>
