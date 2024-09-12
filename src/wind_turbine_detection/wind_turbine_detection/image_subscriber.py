@@ -23,11 +23,11 @@ CAMERA_FOV = 1.204 # radianes
 class ImageSubscriber(Node):
     def __init__(self):
         super().__init__('image_subscriber')
-        # self.subscription = self.create_subscription(
-        #     Image,
-        #     'camera',
-        #     self.listener_callback,
-        #     10)
+        self.subscription = self.create_subscription(
+            Image,
+            'camera',
+            self.listener_callback,
+            10)
         # self.subscription
         self.depth_subscription = self.create_subscription(
             Image,
@@ -90,6 +90,9 @@ class ImageSubscriber(Node):
             x1, y1, x2, y2 = line[0]
             cv2.line(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
         cv2.imshow('All detected lines', img)
+        self.findYShape(img3, lines, "Y shape from rgb image")
+
+    def findYShape(self, img, lines, img_name):
 
         # Find configurations of lines that form a 'Y' inverted shape
         y_inverted_found, verticalLine = y_inverted(lines)
@@ -108,12 +111,12 @@ class ImageSubscriber(Node):
             # Dibuja las líneas
             for line in y_inverted_found:
                 x1, y1, x2, y2 = line[0]
-                cv2.line(img3, (x1, y1), (x2, y2), (0, 255, 0), 2) # LINEAS Y INVERTIDA VERDE
+                cv2.line(img, (x1, y1), (x2, y2), (0, 255, 0), 2) # LINEAS Y INVERTIDA VERDE
 
             intersectionsAverageX = 0
             intersectionsAverageY = 0
             for (x, y) in intersections:
-                cv2.circle(img3, (x, y), 5, (0, 0, 255), -1) # PUNTOS INTERSECCION ROJO
+                cv2.circle(img, (x, y), 5, (0, 0, 255), -1) # PUNTOS INTERSECCION ROJO
                 intersectionsAverageX += x
                 intersectionsAverageY += y
 
@@ -121,7 +124,7 @@ class ImageSubscriber(Node):
                 rotorY = intersectionsAverageY / len(intersections)
                 intersectionsAverageX = intersectionsAverageX / len(intersections) / img.shape[1]
                 intersectionsAverageY = intersectionsAverageY / len(intersections) / img.shape[0]
-                cv2.circle(img3, (int(intersectionsAverageX), int(intersectionsAverageY)), 5, (255, 0, 0), -1)
+                cv2.circle(img, (int(intersectionsAverageX), int(intersectionsAverageY)), 5, (255, 0, 0), -1)
                 percentageInImage = (x1 + x2) / 2 / img.shape[1]
                 fieldOfView = math.degrees(CAMERA_FOV)
 
@@ -137,7 +140,7 @@ class ImageSubscriber(Node):
                 self.angleToHaveWTCenteredOnImagePublisher.publish(String(data=f"{percentageInImage * fieldOfView - fieldOfView / 2},{intersectionsAverageY},{avg_dev_with_sign}"))
 
             # self.get_logger().info(f"Y Inverted Shape found")
-            cv2.imshow('Y Inverted Shape', img3)
+            cv2.imshow(img_name, img)
         
         # Dibujar las líneas verticales en la imagen
         # for line in vertical_lines:
@@ -160,72 +163,68 @@ class ImageSubscriber(Node):
 
         # cv2.imshow('Line recognition', img2)
 
-        cv2.waitKey(1)
+            cv2.waitKey(1)
 
     def depth_listener_callback(self, data):
-        # Convertir el mensaje de imagen de ROS a una imagen de OpenCV
-        cv_image = self.br.imgmsg_to_cv2(data, desired_encoding='passthrough')
+        try:
+            # Convertir el mensaje de imagen de ROS a una imagen de OpenCV
+            cv_image = self.br.imgmsg_to_cv2(data, desired_encoding='passthrough')
 
-        # Manejar valores NaN o infinitos
-        cv_image = np.nan_to_num(cv_image, nan=0.0, posinf=0.0, neginf=0.0)
+            # Manejar valores NaN o infinitos
+            cv_image = np.nan_to_num(cv_image, nan=0.0, posinf=0.0, neginf=0.0)
 
-        # Definir los valores mínimo y máximo para la normalización
-        min_distance = np.min(cv_image[cv_image > 0])
-        max_distance = np.max(cv_image)
+            if (cv_image is None or cv_image.size == 0 or cv_image.shape[0] == 0 or cv_image.shape[1] == 0):
+                return
+            # Definir los valores mínimo y máximo para la normalización
+            min_distance = np.min(cv_image[cv_image > 0])
+            max_distance = np.max(cv_image)
 
-        # Normalizar la imagen de profundidad
-        cv_normalized = (cv_image - min_distance) / (max_distance - min_distance)
-        cv_normalized = np.clip(cv_normalized, 0, 1)
+            # Normalizar la imagen de profundidad
+            cv_normalized = (cv_image - min_distance) / (max_distance - min_distance)
+            cv_normalized = np.clip(cv_normalized, 0, 1)
 
-        # Escalar a 0-255 y convertir a uint8
-        cv_8u = (cv_normalized * 255).astype(np.uint8)
+            # Escalar a 0-255 y convertir a uint8
+            cv_8u = (cv_normalized * 255).astype(np.uint8)
 
-        # Aplicar un mapa de colores para mejor visualización
-        cv_colored = cv2.applyColorMap(cv_8u, cv2.COLORMAP_JET)
+            # Aplicar un mapa de colores para mejor visualización
+            cv_colored = cv2.applyColorMap(cv_8u, cv2.COLORMAP_JET)
 
-        # Mostrar la imagen
-        cv2.imshow('Imagen de Profundidad', cv_colored)
-        cv2.waitKey(1)
-        # img_normalized = cv2.normalize(cv_image, None, 0, 1, cv2.NORM_MINMAX)
 
-        # img_clipped = np.clip(img_normalized, 0, 255)
+            blurred = cv2.GaussianBlur(
+                cv_colored,
+                (9, 9), # size of the Gaussian kernel
+                2 # standard deviation in the X direction
+            )
 
-        # img_8u = img_clipped.astype(np.uint8)
+            # Apply Canny edge detector
+            edges = cv2.Canny(
+                blurred, 
+                threshold1=10, # lower threshold for the hysteresis procedure 
+                threshold2=150, # upper threshold for the hysteresis procedure 
+                apertureSize=3 # size of the Sobel kernel used for finding image gradients. It can be 1, 3, 5, or 7.
+            )
 
-        # cv2.imshow('Converted Image', img_8u)
+            # Apply probabilistic Hough Line Transform
+            lines = cv2.HoughLinesP(
+                edges,
+                rho=1, # Distance resolution in pixels
+                theta=np.pi/180, # Angle resolution in radians
+                threshold=50, # Min number of votes/intersections for valid line
+                minLineLength=40, # Min allowed length of line
+                maxLineGap=25 # Max allowed gap between points on the same line to link them
+            )
 
-        # blurred = cv2.GaussianBlur(
-        #     cv_image_uint8,
-        #     (9, 9), # size of the Gaussian kernel
-        #     2 # standard deviation in the X direction
-        # )
+            if lines is None:
+                return
+            
+            for line in lines:
+                x1, y1, x2, y2 = line[0]
+                cv2.line(cv_colored, (x1, y1), (x2, y2), (0, 255, 0), 2)
 
-        # # Apply Canny edge detector
-        # edges = cv2.Canny(
-        #     blurred, 
-        #     threshold1=10, # lower threshold for the hysteresis procedure 
-        #     threshold2=150, # upper threshold for the hysteresis procedure 
-        #     apertureSize=3 # size of the Sobel kernel used for finding image gradients. It can be 1, 3, 5, or 7.
-        # )
+            self.findYShape(cv_colored, lines, "Y shape from depth image")
+        except Exception as e:
+            self.get_logger().error(f'Error en depth_listener_callback: {e}')
 
-        # # Apply probabilistic Hough Line Transform
-        # lines = cv2.HoughLinesP(
-        #     edges,
-        #     rho=1, # Distance resolution in pixels
-        #     theta=np.pi/180, # Angle resolution in radians
-        #     threshold=50, # Min number of votes/intersections for valid line
-        #     minLineLength=40, # Min allowed length of line
-        #     maxLineGap=25 # Max allowed gap between points on the same line to link them
-        # )
-
-        # if lines is None:
-        #     return
-        
-        # for line in lines:
-        #     x1, y1, x2, y2 = line[0]
-        #     cv2.line(image, (x1, y1), (x2, y2), (0, 255, 0), 2)
-        # cv2.imshow('All detected lines', image)
-        cv2.waitKey(1)
 
 def custom_cv2_normalize(arr, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX):
     # Replace inf and -inf with finite large/small values
