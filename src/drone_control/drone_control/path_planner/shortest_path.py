@@ -5,7 +5,7 @@ from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from typing import List
 
-from objects.mesh_base import Wireframe
+from drone_control.path_planner.objects.mesh_base import Wireframe
 from k_means_constrained import KMeansConstrained
 
 cache = {}
