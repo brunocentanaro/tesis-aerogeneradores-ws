@@ -23,18 +23,16 @@ CAMERA_FOV = 1.204 # radianes
 class ImageSubscriber(Node):
     def __init__(self):
         super().__init__('image_subscriber')
-        self.subscription = self.create_subscription(
-            Image,
-            'camera',
-            self.listener_callback,
-            10)
-        # self.subscription
+        # self.subscription = self.create_subscription(
+        #     Image,
+        #     'camera',
+        #     self.listener_callback,
+        #     10)
         self.depth_subscription = self.create_subscription(
             Image,
             'depth_camera',
             self.depth_listener_callback,
             10)
-        self.depth_subscription
         self.br = CvBridge()
         self.angleToHaveWTCenteredOnImagePublisher = self.create_publisher(String, 'angle_to_have_wt_centered_on_image', 10)
         # print(model.names)
@@ -93,10 +91,9 @@ class ImageSubscriber(Node):
         self.findYShape(img3, lines, "Y shape from rgb image")
 
     def findYShape(self, img, lines, img_name):
-
         # Find configurations of lines that form a 'Y' inverted shape
         y_inverted_found, verticalLine = y_inverted(lines)
-
+        
         # Draw the detected lines on the image
         if y_inverted_found:
             intersections = []
@@ -122,6 +119,7 @@ class ImageSubscriber(Node):
 
             if intersections:
                 rotorY = intersectionsAverageY / len(intersections)
+                rotorX = intersectionsAverageX / len(intersections)
                 intersectionsAverageX = intersectionsAverageX / len(intersections) / img.shape[1]
                 intersectionsAverageY = intersectionsAverageY / len(intersections) / img.shape[0]
                 cv2.circle(img, (int(intersectionsAverageX), int(intersectionsAverageY)), 5, (255, 0, 0), -1)
@@ -135,35 +133,15 @@ class ImageSubscriber(Node):
                         if is_vertical(x1, y1, x2, y2):
                             vertical_lines.append(line)
 
-                # avg_dev, orientation = determine_direction(self, y_inverted_found)
-                avg_dev_with_sign = determine_direction_2(self, rotorY, vertical_lines)
+                avg_dev_with_sign = determine_direction(self, rotorY, vertical_lines)
                 self.angleToHaveWTCenteredOnImagePublisher.publish(String(data=f"{percentageInImage * fieldOfView - fieldOfView / 2},{intersectionsAverageY},{avg_dev_with_sign}"))
 
             # self.get_logger().info(f"Y Inverted Shape found")
             cv2.imshow(img_name, img)
-        
-        # Dibujar las líneas verticales en la imagen
-        # for line in vertical_lines:
-        #     x1, y1, x2, y2 = line[0]
-        #     cv2.line(img2, (x1, y1), (x2, y2), (0, 255, 0), 2) # LINEAS VERTICALES VERDE
-
-        # if vertical_lines:
-        #     highest = highest_point(vertical_lines)
-        #     if highest:
-        #         # Dibujar el punto más alto en la imagen
-        #         # First estimate of the hub
-        #         cv2.circle(img2, highest, 5, (0, 0, 255), -1) # PUNTO MAS ALTO ROJO
-
-        #     distancia_max = 5
-        #     possible_blades = close_lines(lines, highest, distancia_max)
-        #     # Dibujar posibles aspas
-        #     for line in possible_blades:
-        #         x1, y1, x2, y2 = line[0]
-        #         cv2.line(img2, (x1, y1), (x2, y2), (255, 0, 0), 2) # POSIBLES ASPAS AZUL 
-
-        # cv2.imshow('Line recognition', img2)
-
             cv2.waitKey(1)
+            return y_inverted_found, rotorX, rotorY
+        return None, None, None
+
 
     def depth_listener_callback(self, data):
         try:
@@ -175,8 +153,17 @@ class ImageSubscriber(Node):
 
             if (cv_image is None or cv_image.size == 0 or cv_image.shape[0] == 0 or cv_image.shape[1] == 0):
                 return
+
+            # Filtrar los valores mayores a 0
+            positive_values = cv_image[cv_image > 0]
+            
+            # Verificar si hay valores mayores a 0
+            if positive_values.size == 0:
+                print("No se encontraron valores de profundidad mayores a 0")
+                return
+
             # Definir los valores mínimo y máximo para la normalización
-            min_distance = np.min(cv_image[cv_image > 0])
+            min_distance = np.min(positive_values)
             max_distance = np.max(cv_image)
 
             # Normalizar la imagen de profundidad
@@ -216,26 +203,32 @@ class ImageSubscriber(Node):
 
             if lines is None:
                 return
-            
+                        
             for line in lines:
                 x1, y1, x2, y2 = line[0]
                 cv2.line(cv_colored, (x1, y1), (x2, y2), (0, 255, 0), 2)
 
-            self.findYShape(cv_colored, lines, "Y shape from depth image")
+            y_inverted_found, rotorX, rotorY = self.findYShape(cv_colored, lines, "Y shape from depth image")
+
+            if rotorX and rotorY:
+                distanceToRotor = get_distance_at_point(self, rotorX, rotorY, cv_image)
+
+                if distanceToRotor:
+                    self.get_logger().info(f'Distancia en rotor ({rotorX}, {rotorY}): {distanceToRotor} metros')
         except Exception as e:
             self.get_logger().error(f'Error en depth_listener_callback: {e}')
 
-
-def custom_cv2_normalize(arr, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX):
-    # Replace inf and -inf with finite large/small values
-    arr = np.where(np.isposinf(arr), np.finfo(np.float32).max, arr)
-    arr = np.where(np.isneginf(arr), np.finfo(np.float32).min, arr)
-    
-    # Use OpenCV's normalize function
-    # normalized_arr = np.empty_like(arr, dtype=np.float32)  # Ensure the output is float32
-    cv2.normalize(arr, arr, alpha=alpha, beta=beta, norm_type=norm_type)
-    
-    return arr
+def get_distance_at_point(self, x, y, depth_image):
+    x = math.floor(x)
+    y = math.floor(y)
+    # Verifica si el punto está dentro de los límites de la imagen
+    if 0 <= x < depth_image.shape[1] and 0 <= y < depth_image.shape[0]:
+        # Obtiene el valor de distancia en el punto (x, y)
+        distance = depth_image[y, x]
+        return distance
+    else:
+        self.get_logger().error(f'El punto ({x}, {y}) está fuera de los límites de la imagen.')
+        return None
 
 # Determina si una línea es vertical dentro de un margen de error
 def is_vertical(x1, y1, x2, y2, error_margin=15):
@@ -362,62 +355,7 @@ def find_line_intersection(line1, line2, tolerance=0.1):
 
     return (int(x), int(y))
 
-# NO ANDA MUY BIEN PERO LO DEJO POR SI ACASO
-# precondicion: estar a la altura del rotor
-def determine_direction(self, lines, error_margin=3):
-    vertical_edge = None
-    left_edge = None
-    right_edge = None
-    for line in lines:
-        m = slope(line)
-        if m == float('inf'):
-            vertical_edge = line
-        elif m > 0:
-            left_edge = line
-        else:
-            right_edge = line
-
-    if vertical_edge is None or left_edge is None or right_edge is None:
-        return None
-
-    vertical_m = slope(vertical_edge)
-    left_m = slope(left_edge)
-    right_m = slope(right_edge)
-
-    left_angle = 180 - calculate_angle_between_lines(left_m, vertical_m)
-    right_angle = 180 - calculate_angle_between_lines(vertical_m, right_m)
-
-    dev_left = abs(left_angle - 120)
-    dev_right = abs(right_angle - 120)
-
-    avg_dev = (dev_left + dev_right) / 2
-
-    if abs(dev_left - dev_right) > error_margin:
-        if dev_left > dev_right:
-            if left_angle < 120 - error_margin:
-                orientation = -1  # Negativo, gira en sentido horario
-            elif left_angle > 120 + error_margin:
-                orientation = 1  # Positivo, gira en sentido antihorario
-            else:
-                orientation = 0  # No me debo mover
-        else:
-            if right_angle < 120 - error_margin:
-                orientation = 1  # Positivo, gira en sentido antihorario
-            elif right_angle > 120 + error_margin:
-                orientation = -1  # Negativo, gira en sentido horario
-            else:
-                orientation = 0  # No me debo mover
-    else: # Si las desviaciones son parecidas le hago caso al angulo derecho
-        if right_angle < 120 - error_margin:
-            orientation = 1  # Positivo, gira en sentido antihorario
-        elif right_angle > 120 + error_margin:
-            orientation = -1  # Negativo, gira en sentido horario
-        else:
-            orientation = 0  # No me debo mover
-
-    return avg_dev, orientation
-
-def determine_direction_2(self, rotorY, vertical_lines, margin_error=5):
+def determine_direction(self, rotorY, vertical_lines, margin_error=5):
     upper_lines = []
     lower_lines = []
     for line in vertical_lines:
