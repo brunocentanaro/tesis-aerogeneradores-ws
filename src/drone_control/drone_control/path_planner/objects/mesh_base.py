@@ -1,6 +1,7 @@
 from abc import ABC
 import numpy as np
 from stl import mesh
+
 class MeshBase(ABC):
     def __init__(self, vertices, color):
         self.vertices = vertices
