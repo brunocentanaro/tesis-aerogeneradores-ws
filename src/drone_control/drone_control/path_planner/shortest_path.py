@@ -5,7 +5,7 @@ from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from typing import List
 
-from objects.mesh_base import Wireframe
+from drone_control.path_planner.objects.mesh_base import Wireframe
 from k_means_constrained import KMeansConstrained
 
 cache = {}
@@ -13,8 +13,8 @@ data = {}
 use_cache = True
 
 class Section:
-    def __init__(self, points):
-        self.points = np.array(points)
+    def __init__(self, points, safe_distance=0):
+        self.points = np.array(points) + np.array([0,1,0]) * safe_distance
         
         conteo_x = Counter(self.points[:, 0])
         print(conteo_x)
@@ -27,9 +27,6 @@ class Section:
         self.p2 = midpoint(self.points[-1], self.points[-2])  # highest point (need to reorder list)
         self.p1_str = str(self.p1)
         self.p2_str = str(self.p2)
-
-    def scale_using_normal(self, multiplier):
-        return Section(self.points + np.array([0,1,0]) * multiplier)
 
     def get_ordered_points(self, p_str):
         if p_str == self.p1_str:
@@ -48,42 +45,42 @@ def dist(p_to, p_from=np.array([0, 0, 0])):
     v = p_to - p_from
     return np.linalg.norm(v)
 
-def shortest_path_from_stl(start_node, stl_name):
-    wt = Wireframe.from_stl_path(stl_name + '.stl')
+def shortest_path_from_stl(start_node, end_node, safe_distance, stl_name):
+    wt = Wireframe.from_stl_path(stl_name)
     gps = grouping(wt)
     sections = []
     for g in gps:
-        sections.append(Section(g))
-    return shortest_path(np.array(start_node), sections)
+        sections.append(Section(g, safe_distance))
+    return shortest_path(start_node, sections, end_node)
 
-def shortest_path(start_node, sections: List[Section]):
-    points = []
+def shortest_path(start_node, sections: List[Section], end_node):
+    points = [np.array(start_node)]
     points_to_sections = {}
+    points_to_sections[0] = None
     for s in sections:
         points.append(s.p1)
+        points_to_sections[len(points) - 1] = s
         points.append(s.p2)
-        points_to_sections[s.p1_str] = s
-        points_to_sections[s.p2_str] = s
+        points_to_sections[len(points) - 1] = s
+    if end_node is not None:
+        points.append(np.array(end_node)) 
+        points_to_sections[len(points) - 1] = None
+    
     edges = np.zeros((len(points), len(points)))
-    for i, p in enumerate(points):
-        for j in range(i + 1, len(points)):
-            p2 = points[j]
-            if points_to_sections[str(p)] == points_to_sections[str(p2)]:
-                d = 0
+    for i in range(len(points)):
+        for j in range(len(points)):
+            if j == 0 or (points_to_sections[i] == points_to_sections[j]):
+                edges[i, j] = 0
+            elif i == len(points) - 1 and end_node is not None:
+                edges[i, j] = 1000000       # infinito
             else:
-                d = dist(p, p2)
-            edges[i, j] = d
-            edges[j, i] = d
-    start_distances = np.array([dist(start_node, points[i]) for i in range(len(points))])
-    edges = np.vstack([start_distances, edges])
-    edges = np.hstack([np.hstack((0, start_distances)).reshape(-1, 1), edges])
-    best_order, best_dist = solve_tsp(start_node, points, edges)
+                edges[i, j] = dist(points[i], points[j])
+    print(edges)
+    best_order, best_dist = solve_tsp(edges)
     print(f"Best: order={str(best_order)}, dist={best_dist}")
-    return np.array(points)[best_order]
+    return np.array([(id(points_to_sections[index]), value) for index, value in enumerate(points)], dtype=object)[best_order]
 
-def solve_tsp(start_node, points, edges):
-    modifiedPoints = points.copy()
-    modifiedPoints.insert(0, start_node)
+def solve_tsp(edges):
     edges = np.round(edges * 100).astype(int)    
 
     manager = pywrapcp.RoutingIndexManager(len(edges), 1, 0)
@@ -111,12 +108,9 @@ def solve_tsp(start_node, points, edges):
             previous_index = index
             index = solution.Value(routing.NextVar(index))
             route_distance += routing.GetArcCostForVehicle(previous_index, index, 0)
-        route.append(manager.IndexToNode(index))
         
         route = np.array(route)
-        route_non_zero = route[route != 0]
-        route_adjusted = route_non_zero - 1
-        return route_adjusted, route_distance / 100
+        return route, route_distance / 100
     else:
         return None, None
 
@@ -143,10 +137,8 @@ def grouping(obj):
     debug = 0
     return result
 
-def plot_best_order(start_node, points):
+def plot_best_order(points):
     resulting_points = []
-    if start_node is not None:
-        resulting_points.append(([start_node], (173/255, 216/255, 230/255)))
     for i, point in enumerate(points):
         resulting_points.append(([point], get_color_test(i)))
     plot_data_color_connected(resulting_points, "order", dpi=300)
@@ -181,16 +173,20 @@ def plot_data_color_connected(data, title, save=False, show=True, dpi=600):
         ax.plot(d[0], d[1], d[2], lw=2, c=color)
         last_point = [[d[0, -1]], [d[1, -1]], [d[2, -1]]]
     ax.legend()
-    plt.savefig(f'data/fig/{title}_plot.png')
+    ax.set_xlabel('Eje X')
+    ax.set_ylabel('Eje Y')
+    ax.set_zlabel('Eje Z')
+    plt.savefig(f'data/{title}_plot.png')
     if show:
         plt.show()
         plt.clf()
     return ax
 
 def plot_points(points):
+    points_array = np.array(points)
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
-    ax.scatter(points[:, 0], points[:, 1], points[:, 2], c='r', marker='o')
+    ax.scatter(points_array[:, 0], points_array[:, 1], points_array[:, 2], c='r', marker='o')
     ax.set_xlabel('Eje X')
     ax.set_ylabel('Eje Y')
     ax.set_zlabel('Eje Z')
