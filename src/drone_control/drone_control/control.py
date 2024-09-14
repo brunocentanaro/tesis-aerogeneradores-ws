@@ -274,7 +274,7 @@ class OffboardControl(Node):
     def inspectWindTurbine(self, msg):
         self.get_logger().info('Received: "%s"' % msg.data)
         try:
-            tapia = path_planner(WindTurbine(6, 39, "stl_gen/turbine"), (-10,0,0))
+            tapia = path_planner(WindTurbine(6, 39, "drone_control/path_planner/stl_gen/turbine"), (-10,0,0))
             self.get_logger().info('tapia: %s' % tapia)
             # bladeLength = float(msg.data)
             # angleFromHorizontal = 30.0

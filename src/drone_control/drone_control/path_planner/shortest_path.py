@@ -46,7 +46,7 @@ def dist(p_to, p_from=np.array([0, 0, 0])):
     return np.linalg.norm(v)
 
 def shortest_path_from_stl(start_node, end_node, safe_distance, stl_name):
-    wt = Wireframe.from_stl_path(stl_name + '.stl')
+    wt = Wireframe.from_stl_path(stl_name)
     gps = grouping(wt)
     sections = []
     for g in gps:
