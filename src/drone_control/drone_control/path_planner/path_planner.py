@@ -1,5 +1,5 @@
-from stl_gen.create_stl import WindTurbine, create_stl
-from shortest_path import shortest_path_from_stl, plot_best_order, plot_points
+from drone_control.path_planner.stl_gen.create_stl import WindTurbine, create_stl
+from drone_control.path_planner.shortest_path import shortest_path_from_stl, plot_best_order, plot_points
 
 def path_planner(windTurbine:WindTurbine=WindTurbine(6, 39, "stl_gen/turbine"), start_position=[-10, 0, 0], end_position=None, safe_distance=0):
     create_stl(windTurbine)
