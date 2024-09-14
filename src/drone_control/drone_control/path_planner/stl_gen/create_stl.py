@@ -1,6 +1,5 @@
 import numpy as np
 import os
-from ament_index_python.packages import get_package_share_directory
 
 class WindTurbine:
     def __init__(self, rotor_diameter, blade_length, stl_path):
