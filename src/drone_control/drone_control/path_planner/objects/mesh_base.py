@@ -1,7 +1,6 @@
 from abc import ABC
 import numpy as np
 from stl import mesh
-from transformation.transform import Transform
 
 class MeshBase(ABC):
     def __init__(self, vertices, color):
@@ -43,17 +42,6 @@ class Wireframe:
         print(f"  total amount covered: {(len(np.where(self.seen >= 1)[0]) / len(self.seen)) * 100}%")
         print(f"  total triangles: {len(self.seen)} and covered: {len(np.where(self.seen >= 1)[0])}")
 
-    def transform(self, transform:Transform):
-        """ Apply a transformation defined by a transformation matrix. """
-        transformed_vertices = []
-        for vertice in self.vertices:
-            v = []
-            for point in vertice:
-                p = transform(point)
-                v.append(p)
-            transformed_vertices.append(v)
-        return Wireframe(np.array(transformed_vertices).squeeze(), vertice_colors=self.vertice_colors)
-    
     def compute_normals(self):
         v1 = self.vertices[:, 1] - self.vertices[:, 0]
         v2 = self.vertices[:, 2] - self.vertices[:, 0]

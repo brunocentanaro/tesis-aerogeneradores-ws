@@ -5,6 +5,8 @@ from std_msgs.msg import String
 from rclpy.qos import QoSProfile, QoSDurabilityPolicy, QoSReliabilityPolicy
 import math
 from drone_control.utils import *
+from drone_control.path_planner.path_planner import path_planner
+from drone_control.path_planner.stl_gen.create_stl import WindTurbine
 
 IN_WAYPOINT_THRESHOLD = 0.2
 NEAR_WAYPOINT_THRESHOLD = 0.5
@@ -272,14 +274,8 @@ class OffboardControl(Node):
     def inspectWindTurbine(self, msg):
         self.get_logger().info('Received: "%s"' % msg.data)
         try:
-            tapia = [
-                (0.0, -3.6067627668380737, 0.44083887338638306), 
-                (0.0, -33.94490051269531, 21.5), 
-                (0.0, 33.94490051269531, 21.5), 
-                (0.0, 3.6067627668380737, 0.44083890318870544),
-                (0.0, 0.0, -41.25), 
-                (0.0, 0.0, -3.75), 
-                ]
+            tapia = path_planner(WindTurbine(6, 39, "drone_control/path_planner/stl_gen/turbine"), (-10,0,0))
+            self.get_logger().info('tapia: %s' % tapia)
             # bladeLength = float(msg.data)
             # angleFromHorizontal = 30.0
             # x = 0.0
