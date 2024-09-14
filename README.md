@@ -89,7 +89,7 @@ En `Tools/simulation/gz/models/OakD-Lite/model.sdf` realizar las siguientes modi
 -            <near>0.2</near>
 -            <far>19.1</far>
 +            <near>8</near>
-+            <far>65</far>
++            <far>80</far>
           </clip>
         </camera>
         <always_on>1</always_on>

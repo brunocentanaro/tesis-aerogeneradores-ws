@@ -47,7 +47,6 @@ class ImageSubscriber(Node):
         # img = results[0].plot()
         
         img = image
-        img2 = np.copy(img)
         img3 = np.copy(img)
 
         # Convert to grayscale
@@ -87,8 +86,12 @@ class ImageSubscriber(Node):
         for line in lines:
             x1, y1, x2, y2 = line[0]
             cv2.line(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
+
         cv2.imshow('All detected lines', img)
-        self.findYShape(img3, lines, "Y shape from rgb image")
+        y_inverted_found, rotorX, rotorY, angle, intersectionsAverageY, vertical_lines = self.findYShape(img3, lines, "Y shape from rgb image")
+        avg_dev_with_sign = determine_direction(self, rotorY, vertical_lines)
+        if angle and intersectionsAverageY and avg_dev_with_sign:
+            self.angleToHaveWTCenteredOnImagePublisher.publish(String(data=f"{angle},{intersectionsAverageY},{avg_dev_with_sign},0"))
 
     def findYShape(self, img, lines, img_name):
         # Find configurations of lines that form a 'Y' inverted shape
@@ -133,14 +136,11 @@ class ImageSubscriber(Node):
                         if is_vertical(x1, y1, x2, y2):
                             vertical_lines.append(line)
 
-                avg_dev_with_sign = determine_direction(self, rotorY, vertical_lines)
-                self.angleToHaveWTCenteredOnImagePublisher.publish(String(data=f"{percentageInImage * fieldOfView - fieldOfView / 2},{intersectionsAverageY},{avg_dev_with_sign}"))
-
-            # self.get_logger().info(f"Y Inverted Shape found")
+                angle = percentageInImage * fieldOfView - fieldOfView / 2
             cv2.imshow(img_name, img)
             cv2.waitKey(1)
-            return y_inverted_found, rotorX, rotorY
-        return None, None, None
+            return y_inverted_found, rotorX, rotorY, angle, intersectionsAverageY, vertical_lines
+        return None, None, None, None, None, None
 
 
     def depth_listener_callback(self, data):
@@ -159,7 +159,6 @@ class ImageSubscriber(Node):
             
             # Verificar si hay valores mayores a 0
             if positive_values.size == 0:
-                print("No se encontraron valores de profundidad mayores a 0")
                 return
 
             # Definir los valores mínimo y máximo para la normalización
@@ -208,15 +207,122 @@ class ImageSubscriber(Node):
                 x1, y1, x2, y2 = line[0]
                 cv2.line(cv_colored, (x1, y1), (x2, y2), (0, 255, 0), 2)
 
-            y_inverted_found, rotorX, rotorY = self.findYShape(cv_colored, lines, "Y shape from depth image")
+            y_inverted_found, rotorX, rotorY, angle, intersectionsAverageY, vertical_lines = self.findYShape(cv_colored, lines, "Y shape from depth image")
 
             if rotorX and rotorY:
                 distanceToRotor = get_distance_at_point(self, rotorX, rotorY, cv_image)
 
-                if distanceToRotor:
-                    self.get_logger().info(f'Distancia en rotor ({rotorX}, {rotorY}): {distanceToRotor} metros')
+                # if distanceToRotor:
+                #     self.get_logger().info(f'Distancia en rotor ({rotorX}, {rotorY}): {distanceToRotor} metros')
+            
+            if y_inverted_found:
+                avg_dev_with_sign = determine_direction_with_depth(self, y_inverted_found, cv_image)                
+            
+            if angle and intersectionsAverageY and avg_dev_with_sign:
+                self.angleToHaveWTCenteredOnImagePublisher.publish(String(data=f"{angle},{intersectionsAverageY},{avg_dev_with_sign},1"))
+
         except Exception as e:
             self.get_logger().error(f'Error en depth_listener_callback: {e}')
+
+def determine_direction_with_depth(self, y_inverted_found, depth_image):
+    vertical_edge = None
+    left_edge = None
+    right_edge = None
+
+    for line in y_inverted_found:
+        m = slope(line)
+        if m == float('inf'):
+            vertical_edge = line
+        elif m < 0:
+            left_edge = line
+        else:
+            right_edge = line
+
+    if vertical_edge is None or left_edge is None or right_edge is None:
+        return None
+
+    lx1, ly1, lx2, ly2 = left_edge[0]
+    rx1, ry1, rx2, ry2 = right_edge[0]
+
+    upper_ly = min(ly1, ly2)
+    lower_ly = max(ly1, ly2)
+
+    upper_ry = min(ry1, ry2)
+    lower_ry = max(ry1, ry2)
+
+    lower_y_coincidence = None
+    if lower_ly <= lower_ry and lower_ly >= upper_ry:
+        lower_y_coincidence = lower_ly
+    elif lower_ry <= lower_ly and lower_ry >= upper_ly:
+        lower_y_coincidence = lower_ry
+    
+    if lower_y_coincidence:        
+        # Calcula la pendiente (m) e intersección (b) de ambas líneas
+        m_left = slope(left_edge)
+        b_left = intercept(left_edge, m_left)
+        
+        m_right = slope(right_edge)
+        b_right = intercept(right_edge, m_right)
+        
+        # Obtén el valor de x para el y de lower_coincidence en ambas líneas
+        x_left = x_at_y(m_left, b_left, lower_y_coincidence, lx1 if m_left == float('inf') else None)
+        x_right = x_at_y(m_right, b_right, lower_y_coincidence, rx1 if m_right == float('inf') else None)
+        
+        distance_left = get_distance_at_approx_x_point(self, x_left, lower_y_coincidence, depth_image)
+        distance_right = get_distance_at_approx_x_point(self, x_right, lower_y_coincidence, depth_image)
+
+        if distance_left is None or distance_right is None:
+            return None
+
+        avg_dev = (abs(distance_left - distance_right))
+
+        orientation = 0
+        if distance_left < distance_right:
+            orientation = 1 # Sentido antihorario: 1
+        elif distance_left > distance_right:
+            orientation = -1 # Sentido horario: -1
+
+        return (avg_dev * orientation)
+    return None
+
+# Calcula la intersección con el eje y (b) de la ecuación y = mx + b
+def intercept(line, m):
+    if m == float('inf'):
+        return None  # Línea vertical, no tiene intersección en el eje y
+    x1, y1, _, _ = line[0]
+    return y1 - m * x1
+
+# Calcula el valor de x dado un valor de y en la ecuación y = mx + b
+# o devuelve el valor constante de x si la línea es vertical
+def x_at_y(m, b, y, vertical_x=None):
+    if m == float('inf'):
+        return vertical_x  # Línea vertical, siempre tiene un x constante
+    return (y - b) / m
+
+def get_distance_at_approx_x_point(self, x, y, depth_image, max_margin=5):
+    distance = get_distance_at_point(self, x, y, depth_image)
+    if distance > 0:
+        return distance
+    
+    for margin in range(1, max_margin + 1):
+        # Verifica en las posiciones a la izquierda y a la derecha del punto (x, y)
+        for dx in [margin, -margin]:
+            distance = get_distance_at_point(self, x + dx, y, depth_image)
+            if distance > 0:
+                return distance
+            
+        # # Verifica en las posiciones adicionales alrededor del punto (x, y)
+        # for dx in range(1, margin):
+        #     for dy in [margin, -margin]:
+        #         distance = get_distance_at_point(self, x + dx, y + dy, depth_image)
+        #         if distance > 0:
+        #             return distance
+                
+        #         distance = get_distance_at_point(self, x - dx, y + dy, depth_image)
+        #         if distance > 0:
+        #             return distance
+
+    return None
 
 def get_distance_at_point(self, x, y, depth_image):
     x = math.floor(x)

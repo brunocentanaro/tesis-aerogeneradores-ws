@@ -34,7 +34,14 @@ class OrthogonalAlignmentState(InspectionState):
             return
         hadToCorrect = False
         try:
-            angle,intersectionYPercentage, avgDevWithSign = map(float, msg.data.split(","))
+            angle,intersectionYPercentage, avgDevWithSign, type = map(float, msg.data.split(","))
+            if type == 0: # Desviacion obtenida de lineas
+                factor = 0.3333
+                angle_threshold = 4
+            else: # Desviacion obtenida con lidar
+                factor = 1
+                angle_threshold = 2
+
             # self.get_logger().info(f"avgDevWithSign received: {avgDevWithSign}")
             lastFiveYPercAverage = sum(self.lastFivePercentagesInY) / len(self.lastFivePercentagesInY) if len(self.lastFivePercentagesInY) > 0 else 0
 
@@ -79,10 +86,9 @@ class OrthogonalAlignmentState(InspectionState):
                 self.inCorrectPositionCounter = 0
             else:
                 self.inCorrectPositionCounter += 1
-                factor = 0.3333
                 degrees = (lastDeviationMedian - (lastDeviationMedian/abs(lastDeviationMedian))*5 ) * factor if lastDeviationMedian != 0 else 0
                 if (self.inCorrectPositionCounter > 30):
-                    if (abs(degrees) > 4):
+                    if (abs(degrees) > angle_threshold):
                         self.inAnOperation = True
                         self.get_logger().info(f"lastFiveDeviations: {lastDeviationMedian}")
                         
