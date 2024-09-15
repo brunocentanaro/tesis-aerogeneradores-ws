@@ -1,0 +1,809 @@
+commit a7b208486e5c29614fd7cab79726eba9d79a7913
+Author: Stefano <stefano2.colli@mail.polimi.it>
+Date:   Mon Jul 8 16:54:07 2024 +0200
+
+    simulation: add gimbal simulation for gz-sim
+
+diff --git a/ROMFS/px4fmu_common/init.d-posix/airframes/4012_gz_x500_gimbal b/ROMFS/px4fmu_common/init.d-posix/airframes/4012_gz_x500_gimbal
+new file mode 100644
+index 0000000000..80719ae3d3
+--- /dev/null
++++ b/ROMFS/px4fmu_common/init.d-posix/airframes/4012_gz_x500_gimbal
+@@ -0,0 +1,23 @@
++#!/bin/sh
++#
++# @name Gazebo x500 gimbal
++#
++# @type Quadrotor
++#
++
++PX4_SIM_MODEL=${PX4_SIM_MODEL:=x500_gimbal}
++
++. ${R}etc/init.d-posix/airframes/4001_gz_x500
++
++# Gimbal settings
++param set-default MNT_MODE_IN 4
++param set-default MNT_MODE_OUT 2
++param set-default MNT_RC_IN_MODE 1
++
++param set-default MNT_MAN_ROLL 1
++param set-default MNT_MAN_PITCH 2
++param set-default MNT_MAN_YAW 3
++
++param set-default MNT_RANGE_ROLL 180
++param set-default MNT_RANGE_PITCH 180
++param set-default MNT_RANGE_YAW 720
+diff --git a/ROMFS/px4fmu_common/init.d-posix/airframes/CMakeLists.txt b/ROMFS/px4fmu_common/init.d-posix/airframes/CMakeLists.txt
+index 9277ad3039..b023923488 100644
+--- a/ROMFS/px4fmu_common/init.d-posix/airframes/CMakeLists.txt
++++ b/ROMFS/px4fmu_common/init.d-posix/airframes/CMakeLists.txt
+@@ -83,6 +83,7 @@ px4_add_romfs_files(
+ 	4009_gz_r1_rover
+ 	4010_gz_x500_mono_cam
+ 	4011_gz_lawnmower
++	4012_gz_x500_gimbal
+ 
+ 	6011_gazebo-classic_typhoon_h480
+ 	6011_gazebo-classic_typhoon_h480.post
+diff --git a/msg/GimbalDeviceAttitudeStatus.msg b/msg/GimbalDeviceAttitudeStatus.msg
+index 0be66babe1..1d488e7233 100644
+--- a/msg/GimbalDeviceAttitudeStatus.msg
++++ b/msg/GimbalDeviceAttitudeStatus.msg
+@@ -18,3 +18,4 @@ float32 angular_velocity_z
+ uint32 failure_flags
+ 
+ bool received_from_mavlink
++uint8 gimbal_device_id
+diff --git a/src/modules/gimbal/input_mavlink.cpp b/src/modules/gimbal/input_mavlink.cpp
+index ebfde30d2a..12da05d710 100644
+--- a/src/modules/gimbal/input_mavlink.cpp
++++ b/src/modules/gimbal/input_mavlink.cpp
+@@ -468,28 +468,50 @@ void InputMavlinkGimbalV2::_stream_gimbal_manager_status(const ControlData &cont
+ 
+ void InputMavlinkGimbalV2::_stream_gimbal_manager_information(const ControlData &control_data)
+ {
+-	// TODO: Take gimbal_device_information into account.
++	gimbal_device_information_s gimbal_device_info;
++	if (_gimbal_device_information_sub.update(&gimbal_device_info) && _parameters.mnt_mode_out == 2)
++	{
++		gimbal_manager_information_s gimbal_manager_info;
++		gimbal_manager_info.timestamp = hrt_absolute_time();
+ 
+-	gimbal_manager_information_s gimbal_manager_info;
+-	gimbal_manager_info.timestamp = hrt_absolute_time();
++		gimbal_manager_info.cap_flags = gimbal_device_info.cap_flags;
+ 
+-	gimbal_manager_info.cap_flags =
+-		gimbal_manager_information_s::GIMBAL_MANAGER_CAP_FLAGS_HAS_NEUTRAL |
+-		gimbal_manager_information_s::GIMBAL_MANAGER_CAP_FLAGS_HAS_ROLL_LOCK |
+-		gimbal_manager_information_s::GIMBAL_MANAGER_CAP_FLAGS_HAS_PITCH_AXIS |
+-		gimbal_manager_information_s::GIMBAL_MANAGER_CAP_FLAGS_HAS_PITCH_LOCK |
+-		gimbal_manager_information_s::GIMBAL_MANAGER_CAP_FLAGS_HAS_YAW_AXIS |
+-		gimbal_manager_information_s::GIMBAL_MANAGER_CAP_FLAGS_HAS_YAW_LOCK |
+-		gimbal_manager_information_s::GIMBAL_MANAGER_CAP_FLAGS_CAN_POINT_LOCATION_GLOBAL;
++		gimbal_manager_info.roll_max = gimbal_device_info.roll_max;
++		gimbal_manager_info.roll_min = gimbal_device_info.roll_min;
++		gimbal_manager_info.pitch_max = gimbal_device_info.pitch_max;
++		gimbal_manager_info.pitch_min = gimbal_device_info.pitch_min;
++		gimbal_manager_info.yaw_max = gimbal_device_info.yaw_max;
++		gimbal_manager_info.yaw_min = gimbal_device_info.yaw_min;
+ 
+-	gimbal_manager_info.pitch_max = M_PI_F / 2;
+-	gimbal_manager_info.pitch_min = -M_PI_F / 2;
+-	gimbal_manager_info.yaw_max = M_PI_F;
+-	gimbal_manager_info.yaw_min = -M_PI_F;
++		gimbal_manager_info.gimbal_device_id = control_data.device_compid;
+ 
+-	gimbal_manager_info.gimbal_device_id = control_data.device_compid;
++		_gimbal_manager_info_pub.publish(gimbal_manager_info);
++	}
++	else if (_parameters.mnt_mode_out == 0)
++	{
++		// since we have a non-Mavlink gimbal device, the gimbal manager itself has to act as the gimbal device
++		gimbal_manager_information_s gimbal_manager_info;
++		gimbal_manager_info.timestamp = hrt_absolute_time();
++
++		gimbal_manager_info.cap_flags =
++			gimbal_manager_information_s::GIMBAL_MANAGER_CAP_FLAGS_HAS_NEUTRAL |
++			gimbal_manager_information_s::GIMBAL_MANAGER_CAP_FLAGS_HAS_ROLL_LOCK |
++			gimbal_manager_information_s::GIMBAL_MANAGER_CAP_FLAGS_HAS_PITCH_AXIS |
++			gimbal_manager_information_s::GIMBAL_MANAGER_CAP_FLAGS_HAS_PITCH_LOCK |
++			gimbal_manager_information_s::GIMBAL_MANAGER_CAP_FLAGS_HAS_YAW_AXIS |
++			gimbal_manager_information_s::GIMBAL_MANAGER_CAP_FLAGS_HAS_YAW_LOCK |
++			gimbal_manager_information_s::GIMBAL_MANAGER_CAP_FLAGS_CAN_POINT_LOCATION_GLOBAL;
++
++		gimbal_manager_info.pitch_max = _parameters.mnt_range_pitch;
++		gimbal_manager_info.pitch_min = -_parameters.mnt_range_pitch;
++		gimbal_manager_info.yaw_max = _parameters.mnt_range_yaw;
++		gimbal_manager_info.yaw_min = -_parameters.mnt_range_yaw;
++
++		gimbal_manager_info.gimbal_device_id = control_data.device_compid;
++
++		_gimbal_manager_info_pub.publish(gimbal_manager_info);
++	}
+ 
+-	_gimbal_manager_info_pub.publish(gimbal_manager_info);
+ }
+ 
+ InputMavlinkGimbalV2::UpdateResult
+diff --git a/src/modules/gimbal/input_mavlink.h b/src/modules/gimbal/input_mavlink.h
+index 04264410d7..f63eab0799 100644
+--- a/src/modules/gimbal/input_mavlink.h
++++ b/src/modules/gimbal/input_mavlink.h
+@@ -41,6 +41,7 @@
+ #include <uORB/Publication.hpp>
+ #include <uORB/Subscription.hpp>
+ #include <uORB/topics/gimbal_device_attitude_status.h>
++#include <uORB/topics/gimbal_device_information.h>
+ #include <uORB/topics/gimbal_manager_information.h>
+ #include <uORB/topics/gimbal_manager_status.h>
+ #include <uORB/topics/gimbal_manager_set_attitude.h>
+@@ -125,6 +126,7 @@ private:
+ 	int _vehicle_command_sub = -1;
+ 
+ 	uORB::Subscription _gimbal_device_attitude_status_sub{ORB_ID(gimbal_device_attitude_status)};
++	uORB::Subscription _gimbal_device_information_sub{ORB_ID(gimbal_device_information)};
+ 	uORB::Publication<gimbal_manager_information_s> _gimbal_manager_info_pub{ORB_ID(gimbal_manager_information)};
+ 	uORB::Publication<gimbal_manager_status_s> _gimbal_manager_status_pub{ORB_ID(gimbal_manager_status)};
+ 	uint8_t _cur_roi_mode = vehicle_roi_s::ROI_NONE;
+diff --git a/src/modules/gimbal/input_rc.cpp b/src/modules/gimbal/input_rc.cpp
+index c15f916ab9..43d9dd6046 100644
+--- a/src/modules/gimbal/input_rc.cpp
++++ b/src/modules/gimbal/input_rc.cpp
+@@ -129,9 +129,11 @@ InputRC::UpdateResult InputRC::_read_control_data_from_subscription(ControlData
+ 
+ 		if (_parameters.mnt_rc_in_mode == 0) {
+ 			// We scale manual input from roll -180..180, pitch -90..90, yaw, -180..180 degrees.
+-			matrix::Eulerf euler(new_aux_values[0] * math::radians(180.f),
++			// We use 179.99 instead of 180 so to avoid that the conversion between quaternions and Euler representation
++			// (when new_aux_value = 1) gives the equivalent angle (e.g., -180 instead of 180).
++			matrix::Eulerf euler(new_aux_values[0] * math::radians(179.99f),
+ 					     new_aux_values[1] * math::radians(90.f),
+-					     new_aux_values[2] * math::radians(180.f));
++					     new_aux_values[2] * math::radians(179.99f));
+ 
+ 			matrix::Quatf q(euler);
+ 			q.copyTo(control_data.type_data.angle.q);
+diff --git a/src/modules/gimbal/output.cpp b/src/modules/gimbal/output.cpp
+index c43c3dfaa8..fcac8828ed 100644
+--- a/src/modules/gimbal/output.cpp
++++ b/src/modules/gimbal/output.cpp
+@@ -235,12 +235,16 @@ void OutputBase::_calculate_angle_output(const hrt_abstime &t)
+ 			_angle_outputs[i] -= euler_vehicle(i);
+ 		}
+ 
+-		if (PX4_ISFINITE(_angle_outputs[i])) {
+-			// bring angles into proper range [-pi, pi]
++		if (PX4_ISFINITE(_angle_outputs[i]) && _parameters.mnt_rc_in_mode == 0) {
++			// if we are in angle input mode, we bring angles into proper range [-pi, pi]
+ 			_angle_outputs[i] = matrix::wrap_pi(_angle_outputs[i]);
+ 		}
+ 	}
+ 
++	// constrain angle outputs to [-range/2, range/2]
++	_angle_outputs[0] = math::constrain(_angle_outputs[0], math::radians(-_parameters.mnt_range_roll/2), math::radians(_parameters.mnt_range_roll/2));
++	_angle_outputs[1] = math::constrain(_angle_outputs[1], math::radians(-_parameters.mnt_range_pitch/2), math::radians(_parameters.mnt_range_pitch/2));
++	_angle_outputs[2] = math::constrain(_angle_outputs[2], math::radians(-_parameters.mnt_range_yaw/2), math::radians(_parameters.mnt_range_yaw/2));
+ 
+ 	// constrain pitch to [MNT_LND_P_MIN, MNT_LND_P_MAX] if landed
+ 	if (_landed) {
+diff --git a/src/modules/gimbal/output_rc.cpp b/src/modules/gimbal/output_rc.cpp
+index 4b48349a4d..139da860b5 100644
+--- a/src/modules/gimbal/output_rc.cpp
++++ b/src/modules/gimbal/output_rc.cpp
+@@ -59,7 +59,7 @@ void OutputRC::update(const ControlData &control_data, bool new_setpoints, uint8
+ 	hrt_abstime t = hrt_absolute_time();
+ 	_calculate_angle_output(t);
+ 
+-	_stream_device_attitude_status();
++	_stream_device_attitude_status(control_data);
+ 
+ 	// If the output is RC, then we signal this by referring to compid 1.
+ 	gimbal_device_id = 1;
+@@ -89,7 +89,7 @@ void OutputRC::print_status() const
+ 	PX4_INFO("Output: AUX");
+ }
+ 
+-void OutputRC::_stream_device_attitude_status()
++void OutputRC::_stream_device_attitude_status(const ControlData &control_data)
+ {
+ 	gimbal_device_attitude_status_s attitude_status{};
+ 	attitude_status.timestamp = hrt_absolute_time();
+@@ -105,6 +105,7 @@ void OutputRC::_stream_device_attitude_status()
+ 	q.copyTo(attitude_status.q);
+ 
+ 	attitude_status.failure_flags = 0;
++	attitude_status.gimbal_device_id = control_data.device_compid;
+ 	_attitude_status_pub.publish(attitude_status);
+ }
+ 
+diff --git a/src/modules/gimbal/output_rc.h b/src/modules/gimbal/output_rc.h
+index de497c194f..42aa014750 100644
+--- a/src/modules/gimbal/output_rc.h
++++ b/src/modules/gimbal/output_rc.h
+@@ -54,7 +54,7 @@ public:
+ 	virtual void print_status() const;
+ 
+ private:
+-	void _stream_device_attitude_status();
++	void _stream_device_attitude_status(const ControlData &control_data);
+ 
+ 	uORB::Publication <gimbal_controls_s>	_gimbal_controls_pub{ORB_ID(gimbal_controls)};
+ 	uORB::Publication <gimbal_device_attitude_status_s>	_attitude_status_pub{ORB_ID(gimbal_device_attitude_status)};
+diff --git a/src/modules/mavlink/mavlink_receiver.cpp b/src/modules/mavlink/mavlink_receiver.cpp
+index 06fb97c8a6..a39eff5ff7 100644
+--- a/src/modules/mavlink/mavlink_receiver.cpp
++++ b/src/modules/mavlink/mavlink_receiver.cpp
+@@ -3017,7 +3017,14 @@ MavlinkReceiver::handle_message_gimbal_device_information(mavlink_message_t *msg
+ 	gimbal_information.yaw_max = gimbal_device_info_msg.yaw_max;
+ 	gimbal_information.yaw_min = gimbal_device_info_msg.yaw_min;
+ 
+-	gimbal_information.gimbal_device_compid = msg->compid;
++	if (gimbal_device_info_msg.gimbal_device_id == 0)
++	{
++		gimbal_information.gimbal_device_compid = msg->compid;
++	}
++	else
++	{
++		gimbal_information.gimbal_device_compid = gimbal_device_info_msg.gimbal_device_id;
++	}
+ 
+ 	_gimbal_device_information_pub.publish(gimbal_information);
+ }
+@@ -3044,6 +3051,7 @@ MavlinkReceiver::handle_message_gimbal_device_attitude_status(mavlink_message_t
+ 	gimbal_attitude_status.failure_flags = gimbal_device_attitude_status_msg.failure_flags;
+ 
+ 	gimbal_attitude_status.received_from_mavlink = true;
++	gimbal_attitude_status.gimbal_device_id = gimbal_device_attitude_status_msg.gimbal_device_id;
+ 
+ 	_gimbal_device_attitude_status_pub.publish(gimbal_attitude_status);
+ }
+diff --git a/src/modules/mavlink/streams/GIMBAL_DEVICE_ATTITUDE_STATUS.hpp b/src/modules/mavlink/streams/GIMBAL_DEVICE_ATTITUDE_STATUS.hpp
+index 615a797488..46c6e41f49 100644
+--- a/src/modules/mavlink/streams/GIMBAL_DEVICE_ATTITUDE_STATUS.hpp
++++ b/src/modules/mavlink/streams/GIMBAL_DEVICE_ATTITUDE_STATUS.hpp
+@@ -74,27 +74,43 @@ private:
+ 				return false;
+ 			}
+ 
+-			mavlink_gimbal_device_attitude_status_t msg{};
++			if (gimbal_device_attitude_status.gimbal_device_id >= 1 && gimbal_device_attitude_status.gimbal_device_id <= 6)
++			{
++				// A non-MAVLink gimbal is signalled and addressed using 1 to 6 as the gimbal_device_id
++				mavlink_gimbal_device_attitude_status_t msg{};
+ 
+-			msg.target_system = gimbal_device_attitude_status.target_system;
+-			msg.target_component = gimbal_device_attitude_status.target_component;
++				msg.target_system = gimbal_device_attitude_status.target_system;
++				msg.target_component = gimbal_device_attitude_status.target_component;
+ 
+-			msg.time_boot_ms = gimbal_device_attitude_status.timestamp / 1000;
++				msg.time_boot_ms = gimbal_device_attitude_status.timestamp / 1000;
+ 
+-			msg.flags = gimbal_device_attitude_status.device_flags;
++				msg.flags = gimbal_device_attitude_status.device_flags;
+ 
+-			msg.q[0] = gimbal_device_attitude_status.q[0];
+-			msg.q[1] = gimbal_device_attitude_status.q[1];
+-			msg.q[2] = gimbal_device_attitude_status.q[2];
+-			msg.q[3] = gimbal_device_attitude_status.q[3];
++				msg.q[0] = gimbal_device_attitude_status.q[0];
++				msg.q[1] = gimbal_device_attitude_status.q[1];
++				msg.q[2] = gimbal_device_attitude_status.q[2];
++				msg.q[3] = gimbal_device_attitude_status.q[3];
+ 
+-			msg.angular_velocity_x = gimbal_device_attitude_status.angular_velocity_x;
+-			msg.angular_velocity_y = gimbal_device_attitude_status.angular_velocity_y;
+-			msg.angular_velocity_z = gimbal_device_attitude_status.angular_velocity_z;
++				msg.angular_velocity_x = gimbal_device_attitude_status.angular_velocity_x;
++				msg.angular_velocity_y = gimbal_device_attitude_status.angular_velocity_y;
++				msg.angular_velocity_z = gimbal_device_attitude_status.angular_velocity_z;
+ 
+-			msg.failure_flags = gimbal_device_attitude_status.failure_flags;
++				msg.failure_flags = gimbal_device_attitude_status.failure_flags;
++				msg.gimbal_device_id = gimbal_device_attitude_status.gimbal_device_id;
+ 
+-			mavlink_msg_gimbal_device_attitude_status_send_struct(_mavlink->get_channel(), &msg);
++				mavlink_msg_gimbal_device_attitude_status_send_struct(_mavlink->get_channel(), &msg);
++			}
++			else
++			{
++				// We have a Mavlink gimbal. We simulate its mavlink instance by spoofing the component ID
++				mavlink_message_t message;
++				mavlink_msg_gimbal_device_attitude_status_pack_chan(_mavlink->get_system_id(), MAV_COMP_ID_GIMBAL, _mavlink->get_channel(), &message,
++						gimbal_device_attitude_status.target_system, gimbal_device_attitude_status.target_component, gimbal_device_attitude_status.timestamp / 1000,
++						gimbal_device_attitude_status.device_flags, gimbal_device_attitude_status.q, gimbal_device_attitude_status.angular_velocity_x,
++						gimbal_device_attitude_status.angular_velocity_y, gimbal_device_attitude_status.angular_velocity_z, gimbal_device_attitude_status.failure_flags,
++						0, 0, 0);
++				_mavlink->forward_message(&message, _mavlink);
++			}
+ 
+ 			return true;
+ 		}
+diff --git a/src/modules/mavlink/streams/GIMBAL_DEVICE_INFORMATION.hpp b/src/modules/mavlink/streams/GIMBAL_DEVICE_INFORMATION.hpp
+index d0aa42f9f0..c2e53619c1 100644
+--- a/src/modules/mavlink/streams/GIMBAL_DEVICE_INFORMATION.hpp
++++ b/src/modules/mavlink/streams/GIMBAL_DEVICE_INFORMATION.hpp
+@@ -83,6 +83,7 @@ private:
+ 			msg.pitch_max = gimbal_device_information.pitch_max;
+ 			msg.yaw_min = gimbal_device_information.yaw_min;
+ 			msg.yaw_max = gimbal_device_information.yaw_max;
++			msg.gimbal_device_id = gimbal_device_information.gimbal_device_compid;
+ 
+ 			mavlink_msg_gimbal_device_information_send_struct(_mavlink->get_channel(), &msg);
+ 
+diff --git a/src/modules/simulation/gz_bridge/CMakeLists.txt b/src/modules/simulation/gz_bridge/CMakeLists.txt
+index 003a712282..a2f4bd85ae 100644
+--- a/src/modules/simulation/gz_bridge/CMakeLists.txt
++++ b/src/modules/simulation/gz_bridge/CMakeLists.txt
+@@ -66,6 +66,8 @@ if(gz-transport_FOUND)
+ 			GZMixingInterfaceServo.hpp
+ 			GZMixingInterfaceWheel.cpp
+ 			GZMixingInterfaceWheel.hpp
++			GZGimbal.cpp
++			GZGimbal.hpp
+ 		DEPENDS
+ 			mixer_module
+ 			px4_work_queue
+diff --git a/src/modules/simulation/gz_bridge/GZBridge.cpp b/src/modules/simulation/gz_bridge/GZBridge.cpp
+index 56c6d028a0..aa13e07530 100644
+--- a/src/modules/simulation/gz_bridge/GZBridge.cpp
++++ b/src/modules/simulation/gz_bridge/GZBridge.cpp
+@@ -240,6 +240,11 @@ int GZBridge::init()
+ 		return PX4_ERROR;
+ 	}
+ 
++	if (!_gimbal.init(_world_name, _model_name)) {
++		PX4_ERR("failed to init gimbal");
++		return PX4_ERROR;
++	}
++
+ 	ScheduleNow();
+ 	return OK;
+ }
+@@ -767,6 +772,7 @@ void GZBridge::Run()
+ 		_mixing_interface_esc.stop();
+ 		_mixing_interface_servo.stop();
+ 		_mixing_interface_wheel.stop();
++		_gimbal.stop();
+ 
+ 		exit_and_cleanup();
+ 		return;
+@@ -783,6 +789,7 @@ void GZBridge::Run()
+ 		_mixing_interface_esc.updateParams();
+ 		_mixing_interface_servo.updateParams();
+ 		_mixing_interface_wheel.updateParams();
++		_gimbal.updateParams();
+ 	}
+ 
+ 	ScheduleDelayed(10_ms);
+diff --git a/src/modules/simulation/gz_bridge/GZBridge.hpp b/src/modules/simulation/gz_bridge/GZBridge.hpp
+index 6d2e2670a1..299ccbd2e8 100644
+--- a/src/modules/simulation/gz_bridge/GZBridge.hpp
++++ b/src/modules/simulation/gz_bridge/GZBridge.hpp
+@@ -36,6 +36,7 @@
+ #include "GZMixingInterfaceESC.hpp"
+ #include "GZMixingInterfaceServo.hpp"
+ #include "GZMixingInterfaceWheel.hpp"
++#include "GZGimbal.hpp"
+ 
+ #include <px4_platform_common/atomic.h>
+ #include <px4_platform_common/defines.h>
+@@ -134,6 +135,7 @@ private:
+ 	GZMixingInterfaceESC   _mixing_interface_esc{_node, _node_mutex};
+ 	GZMixingInterfaceServo _mixing_interface_servo{_node, _node_mutex};
+ 	GZMixingInterfaceWheel _mixing_interface_wheel{_node, _node_mutex};
++	GZGimbal _gimbal{_node, _node_mutex};
+ 
+ 	px4::atomic<uint64_t> _world_time_us{0};
+ 
+diff --git a/src/modules/simulation/gz_bridge/GZGimbal.cpp b/src/modules/simulation/gz_bridge/GZGimbal.cpp
+new file mode 100644
+index 0000000000..023826468d
+--- /dev/null
++++ b/src/modules/simulation/gz_bridge/GZGimbal.cpp
+@@ -0,0 +1,255 @@
++// #define DEBUG_BUILD
++#include "GZGimbal.hpp"
++
++bool GZGimbal::init(const std::string &world_name, const std::string &model_name)
++{
++	// Gazebo communication
++	const std::string gimbal_roll_topic = "/model/" + model_name + "/command/gimbal_roll";
++	_gimbal_roll_cmd_publisher = _node.Advertise<gz::msgs::Double>(gimbal_roll_topic);
++	if (!_gimbal_roll_cmd_publisher.Valid()) {
++		PX4_ERR("failed to advertise %s", gimbal_roll_topic.c_str());
++		return false;
++	}
++
++	const std::string gimbal_pitch_topic = "/model/" + model_name + "/command/gimbal_pitch";
++	_gimbal_pitch_cmd_publisher = _node.Advertise<gz::msgs::Double>(gimbal_pitch_topic);
++	if (!_gimbal_pitch_cmd_publisher.Valid()) {
++		PX4_ERR("failed to advertise %s", gimbal_pitch_topic.c_str());
++		return false;
++	}
++
++	const std::string gimbal_yaw_topic = "/model/" + model_name + "/command/gimbal_yaw";
++	_gimbal_yaw_cmd_publisher = _node.Advertise<gz::msgs::Double>(gimbal_yaw_topic);
++	if (!_gimbal_yaw_cmd_publisher.Valid()) {
++		PX4_ERR("failed to advertise %s", gimbal_yaw_topic.c_str());
++		return false;
++	}
++
++	const std::string gimbal_imu_topic = "/world/" + world_name + "/model/" + model_name + "/link/camera_link/sensor/camera_imu/imu";
++	if (!_node.Subscribe(gimbal_imu_topic, &GZGimbal::gimbalIMUCallback, this))
++	{
++		PX4_ERR("failed to subscribe to %s", gimbal_imu_topic.c_str());
++		return false;
++	}
++
++	// Mount parameters
++	_mnt_range_roll_handle = param_find("MNT_RANGE_ROLL");
++	_mnt_range_pitch_handle = param_find("MNT_RANGE_PITCH");
++	_mnt_range_yaw_handle = param_find("MNT_RANGE_YAW");
++	_mnt_mode_out_handle = param_find("MNT_MODE_OUT");
++	if (_mnt_range_roll_handle == PARAM_INVALID ||
++	    _mnt_range_pitch_handle == PARAM_INVALID ||
++	    _mnt_range_yaw_handle == PARAM_INVALID ||
++	    _mnt_mode_out_handle == PARAM_INVALID)
++	{
++		return false;
++	}
++	updateParameters();
++
++	ScheduleOnInterval(200_ms); // @5Hz
++
++	// Schedule on vehicle command messages
++	if (!_vehicle_command_sub.registerCallback())
++	{
++		return false;
++	}
++
++	return true;
++}
++
++void GZGimbal::Run()
++{
++	pthread_mutex_lock(&_node_mutex);
++
++	const hrt_abstime now = hrt_absolute_time();
++	const float dt = (now - _last_time_update) / 1e6f;
++	_last_time_update = now;
++
++	updateParameters();
++	if (pollSetpoint())
++	{
++		//TODO handle device flags
++		publishJointCommand(_gimbal_roll_cmd_publisher, _roll_stp, _roll_rate_stp, _last_roll_stp, _roll_min, _roll_max, dt);
++		publishJointCommand(_gimbal_pitch_cmd_publisher, _pitch_stp, _pitch_rate_stp, _last_pitch_stp, _pitch_min, _pitch_max, dt);
++		publishJointCommand(_gimbal_yaw_cmd_publisher, _yaw_stp, _yaw_rate_stp, _last_yaw_stp, _yaw_min, _yaw_max, dt);
++	}
++
++	if (_mnt_mode_out == 2)
++	{
++		// We have a Mavlink gimbal capable of sending messages
++		publishDeviceInfo();
++		publishDeviceAttitude();
++	}
++
++	pthread_mutex_unlock(&_node_mutex);
++}
++
++void GZGimbal::stop()
++{
++	ScheduleClear();
++}
++
++void GZGimbal::gimbalIMUCallback(const gz::msgs::IMU &IMU_data)
++{
++	pthread_mutex_lock(&_node_mutex);
++
++	static const matrix::Quatf q_FLU_to_FRD = matrix::Quatf(0.0f, 1.0f, 0.0f, 0.0f);
++	const matrix::Quatf q_gimbal_FLU = matrix::Quatf(IMU_data.orientation().w(),
++							 IMU_data.orientation().x(),
++							 IMU_data.orientation().y(),
++							 IMU_data.orientation().z());
++	_q_gimbal = q_FLU_to_FRD * q_gimbal_FLU * q_FLU_to_FRD.inversed();
++
++	pthread_mutex_unlock(&_node_mutex);
++}
++
++void GZGimbal::updateParameters()
++{
++	param_get(_mnt_range_roll_handle, &_mnt_range_roll);
++	param_get(_mnt_range_pitch_handle, &_mnt_range_pitch);
++	param_get(_mnt_range_yaw_handle, &_mnt_range_yaw);
++	param_get(_mnt_mode_out_handle, &_mnt_mode_out);
++}
++
++bool GZGimbal::pollSetpoint()
++{
++	if(_gimbal_device_set_attitude_sub.updated())
++	{
++		gimbal_device_set_attitude_s msg;
++		if (_gimbal_device_set_attitude_sub.copy(&msg))
++		{
++			const matrix::Eulerf gimbal_att_stp(matrix::Quatf(msg.q));
++			_roll_stp = gimbal_att_stp.phi();
++			_pitch_stp = gimbal_att_stp.theta();
++			_yaw_stp = gimbal_att_stp.psi();
++			_roll_rate_stp = msg.angular_velocity_x;
++			_pitch_rate_stp = msg.angular_velocity_y;
++			_yaw_rate_stp = msg.angular_velocity_z;
++			_gimbal_device_flags = msg.flags;
++
++			return true;
++		}
++	}
++	else if (_gimbal_controls_sub.updated())
++	{
++		gimbal_controls_s msg;
++		if (_gimbal_controls_sub.copy(&msg))
++		{
++			// map control inputs from [-1;1] to [min_angle; max_angle] using the range parameters
++			_roll_stp = math::constrain(math::radians(msg.control[msg.INDEX_ROLL] * _mnt_range_roll/2), _roll_min, _roll_max);
++			_pitch_stp = math::constrain(math::radians(msg.control[msg.INDEX_PITCH] * _mnt_range_pitch/2), _pitch_min, _pitch_max);
++			_yaw_stp = math::constrain(math::radians(msg.control[msg.INDEX_YAW] * _mnt_range_yaw/2), _yaw_min, _yaw_max);
++
++			return true;
++		}
++	}
++	return false;
++}
++
++void GZGimbal::publishDeviceInfo()
++{
++	if (_vehicle_command_sub.updated())
++	{
++		vehicle_command_s cmd;
++		_vehicle_command_sub.copy(&cmd);
++		if (cmd.command == vehicle_command_s::VEHICLE_CMD_REQUEST_MESSAGE &&
++		     (uint16_t)cmd.param1 == vehicle_command_s::VEHICLE_CMD_GIMBAL_DEVICE_INFORMATION)
++		{
++			// Acknowledge the command
++			vehicle_command_ack_s command_ack{};
++
++			command_ack.command = cmd.command;
++			command_ack.result = (uint8_t)vehicle_command_ack_s::VEHICLE_CMD_RESULT_ACCEPTED;
++			command_ack.target_system = cmd.source_system;
++			command_ack.target_component = cmd.source_component;
++			command_ack.timestamp = hrt_absolute_time();
++
++			_vehicle_command_ack_pub.publish(command_ack);
++
++			// Send the requested message
++		 	gimbal_device_information_s device_info{};
++
++			memcpy(device_info.vendor_name, _vendor_name, sizeof(_vendor_name));
++			memcpy(device_info.model_name, _model_name, sizeof(_model_name));
++			memcpy(device_info.custom_name, _custom_name, sizeof(_custom_name));
++			device_info.firmware_version = _firmware_version;
++			device_info.hardware_version = _hardware_version;
++			device_info.uid = _uid;
++			device_info.cap_flags = _cap_flags;
++			device_info.custom_cap_flags = _custom_cap_flags;
++			device_info.roll_min = _roll_min;
++			device_info.roll_max = _roll_max;
++			device_info.pitch_min = _pitch_min;
++			device_info.pitch_max = _pitch_max;
++			device_info.yaw_min = _yaw_min;
++			device_info.yaw_max = _yaw_max;
++			device_info.gimbal_device_compid = _gimbal_device_id;
++			device_info.timestamp = hrt_absolute_time();
++
++			_gimbal_device_information_pub.publish(device_info);
++		}
++	}
++}
++
++void GZGimbal::publishDeviceAttitude()
++{
++	// TODO handle flags
++
++	gimbal_device_attitude_status_s gimbal_att{};
++
++	gimbal_att.target_system = 0; // Broadcast
++	gimbal_att.target_component = 0; // Broadcast
++	gimbal_att.device_flags = 0;
++	_q_gimbal.copyTo(gimbal_att.q);
++	gimbal_att.angular_velocity_x = _gimbal_rate[0];
++	gimbal_att.angular_velocity_y = _gimbal_rate[1];
++	gimbal_att.angular_velocity_z = _gimbal_rate[2];
++	gimbal_att.failure_flags = 0;
++	gimbal_att.timestamp = hrt_absolute_time();
++
++	_gimbal_device_attitude_status_pub.publish(gimbal_att);
++}
++
++void GZGimbal::publishJointCommand(gz::transport::Node::Publisher& publisher, const float att_stp, const float rate_stp,
++	 float &last_stp, const float min_stp, const float max_stp, const float dt)
++{
++	gz::msgs::Double msg;
++
++	float new_stp = computeJointSetpoint(att_stp, rate_stp, last_stp, dt);
++	new_stp = math::constrain(new_stp, min_stp, max_stp);
++	last_stp = new_stp;
++	msg.set_data(new_stp);
++
++	publisher.Publish(msg);
++}
++
++float GZGimbal::computeJointSetpoint(const float att_stp, const float rate_stp,const float last_stp, const float dt)
++{
++
++	if (PX4_ISFINITE(rate_stp))
++	{
++		const float rate_diff = dt * rate_stp;
++    		const float stp_from_rate = last_stp + rate_diff;
++
++		if (PX4_ISFINITE(att_stp))
++		{
++			// We use the attitude rate setpoint but we constrain it by the desired angle
++			return rate_diff > 0 ? math::min(att_stp, stp_from_rate) : math::max(att_stp, stp_from_rate);
++		}
++		else
++		{
++			// The rate setpoint is valid while the angle one is not
++			return stp_from_rate;
++		}
++	}
++	else if (PX4_ISFINITE(att_stp))
++	{
++		// Only the angle setpoint is valid
++		return att_stp;
++	}
++	else
++	{
++		// Neither setpoint is valid so we steer the gimbal to the default position (roll = pitch = yaw = 0)
++		return 0.0f;
++	}
++}
+diff --git a/src/modules/simulation/gz_bridge/GZGimbal.hpp b/src/modules/simulation/gz_bridge/GZGimbal.hpp
+new file mode 100644
+index 0000000000..b001a76904
+--- /dev/null
++++ b/src/modules/simulation/gz_bridge/GZGimbal.hpp
+@@ -0,0 +1,143 @@
++#pragma once
++
++#include <px4_platform_common/module_params.h>
++#include <px4_platform_common/px4_work_queue/ScheduledWorkItem.hpp>
++
++#include <uORB/topics/gimbal_device_set_attitude.h>
++#include <uORB/topics/gimbal_device_attitude_status.h>
++#include <uORB/topics/gimbal_device_information.h>
++#include <uORB/topics/vehicle_command.h>
++#include <uORB/topics/vehicle_command_ack.h>
++#include <uORB/topics/gimbal_controls.h>
++#include <uORB/topics/parameter_update.h>
++#include <uORB/Publication.hpp>
++#include <uORB/Subscription.hpp>
++#include <uORB/SubscriptionCallback.hpp>
++#include <parameters/param.h>
++
++#include <gz/msgs.hh>
++#include <gz/transport.hh>
++
++#include <lib/matrix/matrix/Quaternion.hpp>
++#include <drivers/drv_hrt.h>
++#include <math.h>
++
++using namespace time_literals;
++
++class GZGimbal : public px4::ScheduledWorkItem, public ModuleParams
++{
++public:
++	GZGimbal(gz::transport::Node &node, pthread_mutex_t &node_mutex) :
++		px4::ScheduledWorkItem(MODULE_NAME "-gimbal", px4::wq_configurations::rate_ctrl),
++		ModuleParams(nullptr),
++		_node(node),
++		_node_mutex(node_mutex)
++	{}
++
++private:
++	friend class GZBridge;
++
++	gz::transport::Node &_node;
++	pthread_mutex_t &_node_mutex;
++
++	uORB::Subscription _gimbal_device_set_attitude_sub{ORB_ID(gimbal_device_set_attitude)};
++	uORB::Subscription _gimbal_controls_sub{ORB_ID(gimbal_controls)};
++	uORB::SubscriptionCallbackWorkItem _vehicle_command_sub{this, ORB_ID(vehicle_command)};
++
++	uORB::Publication<gimbal_device_attitude_status_s> _gimbal_device_attitude_status_pub{ORB_ID(gimbal_device_attitude_status)};
++	uORB::Publication<gimbal_device_information_s> _gimbal_device_information_pub{ORB_ID(gimbal_device_information)};
++	uORB::Publication<vehicle_command_ack_s> _vehicle_command_ack_pub{ORB_ID(vehicle_command_ack)};
++
++	gz::transport::Node::Publisher _gimbal_roll_cmd_publisher;
++	gz::transport::Node::Publisher _gimbal_pitch_cmd_publisher;
++	gz::transport::Node::Publisher _gimbal_yaw_cmd_publisher;
++
++	float _roll_stp = NAN;
++	float _pitch_stp = NAN;
++	float _yaw_stp = NAN;
++
++	float _last_roll_stp = 0.0f;
++	float _last_pitch_stp = 0.0f;
++	float _last_yaw_stp = 0.0f;
++
++	float _roll_rate_stp = NAN;
++	float _pitch_rate_stp = NAN;
++	float _yaw_rate_stp = NAN;
++
++	hrt_abstime _last_time_update;
++
++	// Mount parameters
++	param_t _mnt_range_pitch_handle = PARAM_INVALID;
++	param_t _mnt_range_roll_handle = PARAM_INVALID;
++	param_t _mnt_range_yaw_handle = PARAM_INVALID;
++	param_t _mnt_mode_out_handle = PARAM_INVALID;
++	float _mnt_range_pitch = 0.0f;
++	float _mnt_range_roll = 0.0f;
++	float _mnt_range_yaw = 0.0f;
++	int32_t _mnt_mode_out = 0;
++
++	matrix::Quatf _q_gimbal = matrix::Quatf(1.0f, 0.0f, 0.0f, 0.0f);
++	float _gimbal_rate[3] = {NAN};
++
++	// Device information attributes
++	const char _vendor_name[32] = "PX4";
++	const char _model_name[32] = "Gazebo Gimbal";
++	const char _custom_name[32] = "";
++	const uint8_t _firmware_dev_version = 0;
++	const uint8_t _firmware_patch_version = 0;
++  	const uint8_t _firmware_minor_version = 0;
++  	const uint8_t _firmware_major_version = 1;
++  	const uint32_t _firmware_version = (_firmware_dev_version & 0xff) << 24 | (_firmware_patch_version & 0xff) << 16 |
++    					 (_firmware_minor_version & 0xff) << 8 | (_firmware_major_version & 0xff);
++	const uint8_t _hardware_dev_version = 0;
++  	const uint8_t _hardware_patch_version = 0;
++  	const uint8_t _hardware_minor_version = 0;
++  	const uint8_t _hardware_major_version = 1;
++	const uint32_t _hardware_version = (_hardware_dev_version & 0xff) << 24 | (_hardware_patch_version & 0xff) << 16 |
++    					 (_hardware_minor_version & 0xff) << 8 | (_hardware_major_version & 0xff);
++	const uint64_t _uid = 0x9a77a55b3c10971f ;
++	const uint16_t _cap_flags = gimbal_device_information_s::GIMBAL_DEVICE_CAP_FLAGS_HAS_NEUTRAL |
++			            gimbal_device_information_s::GIMBAL_DEVICE_CAP_FLAGS_HAS_ROLL_AXIS | gimbal_device_information_s::GIMBAL_DEVICE_CAP_FLAGS_HAS_ROLL_FOLLOW |
++				    gimbal_device_information_s::GIMBAL_DEVICE_CAP_FLAGS_HAS_PITCH_AXIS | gimbal_device_information_s::GIMBAL_DEVICE_CAP_FLAGS_HAS_PITCH_FOLLOW |
++			            gimbal_device_information_s::GIMBAL_DEVICE_CAP_FLAGS_HAS_YAW_AXIS | gimbal_device_information_s::GIMBAL_DEVICE_CAP_FLAGS_HAS_YAW_FOLLOW |
++				    gimbal_device_information_s::GIMBAL_DEVICE_CAP_FLAGS_SUPPORTS_INFINITE_YAW;
++	const uint16_t _custom_cap_flags = 0;
++	const float _roll_min = -0.785398f;
++	const float _roll_max = 0.785398f;
++	const float _pitch_min = -1.5708f;
++	const float _pitch_max = 0.785398f;
++	const float _yaw_min = NAN; 	// infinite yaw
++	const float _yaw_max = NAN;	// infinite yaw
++	const uint8_t _gimbal_device_id = 154;	// TODO the implementation differs from the protocol
++	uint16_t _gimbal_device_flags = 0;  // GIMBAL_DEVICE_FLAGS
++
++	bool init(const std::string &world_name, const std::string &model_name);
++	void Run() override;
++	void stop();
++	void gimbalIMUCallback(const gz::msgs::IMU &IMU_data);
++	void updateParameters();
++	/// @brief Poll for new gimbal setpoints either from mavlink gimbal v2 protocol (gimbal_device_set_attitude topic) or from RC inputs (gimbal_controls topic).
++	/// @return true if a new setpoint has been requested; false otherwise.
++	bool pollSetpoint();
++	/// @brief Respond to the gimbal manager when it requests GIMBAL_DEVICE_INFORMATION messages.
++	void publishDeviceInfo();
++	/// @brief Broadcast gimbal device attitude status message.
++	void publishDeviceAttitude();
++	/// @brief Compute joint position setpoint taking into account both desired position and velocity. Then publish the command using the specified gazebo node.
++	/// @param publisher Gazebo node that will publish the setpoint
++	/// @param att_stp desired joint attitude [rad]
++	/// @param rate_stp desired joint attitude rate [rad/s]
++	/// @param last_stp last joint attitude setpoint [rad]
++	/// @param min_stp minimum joint attitude [rad]
++	/// @param max_stp maximum joint attitude [rad]
++	/// @param dt time interval since the last computation [s]
++	static void publishJointCommand(gz::transport::Node::Publisher& publisher, const float att_stp, const float rate_stp, float &last_stp,
++						const float min_stp, const float max_stp, const float dt);
++	/// @brief Compute joint position setpoint taking into account both desired position and velocity.
++	/// @param att_stp desired joint attitude [rad]
++	/// @param rate_stp desired joint attitude rate [rad/s]
++	/// @param last_stp last joint attitude setpoint [rad]
++	/// @param dt time interval since the last computation [s]
++	/// @return new joint setpoint
++	static float computeJointSetpoint(const float att_stp, const float rate_stp, const float last_stp, const float dt);
++};
