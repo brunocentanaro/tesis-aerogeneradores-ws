@@ -35,6 +35,8 @@ class OrthogonalAlignmentState(InspectionState):
         self.lastDevs = []
         self.validAlignmentCounter = 0
         self.verticalSeenDistance = VERTICAL_SEEN_DISTANCE
+        self.changeImageSubscriberModePublisher = self.create_publisher(String, 'change_mode', 10)
+        self.changeImageSubscriberModePublisher.publish(String(data="1"))
 
     def angle_to_have_wt_centered_callback(self, msg):
         if self.inAnOperation:
@@ -146,3 +148,6 @@ class OrthogonalAlignmentState(InspectionState):
         self.lastDevs.clear()
         self.get_logger().info("Data arrays cleared upon reaching waypoint.")
 
+    def advance_to_next_state(self):
+        self.changeImageSubscriberModePublisher.publish(String(data="0"))
+        super().advance_to_next_state()
