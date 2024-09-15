@@ -47,38 +47,9 @@ class ImageSubscriber(Node):
         # img = results[0].plot()
         
         img = image
-        img3 = np.copy(img)
+        copy_img = np.copy(img)
 
-        # Convert to grayscale
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        #cv2.imshow('Grayscale Image', gray)
-
-        # Apply Gaussian Blur
-        blurred = cv2.GaussianBlur(
-            gray,
-            (9, 9), # size of the Gaussian kernel
-            2 # standard deviation in the X direction
-        )
-        # cv2.imshow('Blurred Image', blurred)
-
-        # Apply Canny edge detector
-        edges = cv2.Canny(
-            blurred, 
-            threshold1=10, # lower threshold for the hysteresis procedure 
-            threshold2=150, # upper threshold for the hysteresis procedure 
-            apertureSize=3 # size of the Sobel kernel used for finding image gradients. It can be 1, 3, 5, or 7.
-        )
-        # cv2.imshow('Edges', edges)
-
-        # Apply probabilistic Hough Line Transform
-        lines = cv2.HoughLinesP(
-            edges,
-            rho=1, # Distance resolution in pixels
-            theta=np.pi/180, # Angle resolution in radians
-            threshold=50, # Min number of votes/intersections for valid line
-            minLineLength=40, # Min allowed length of line
-            maxLineGap=25 # Max allowed gap between points on the same line to link them
-        )
+        lines = preproces_and_hough(self, img)
 
         if lines is None:
             return
@@ -88,7 +59,7 @@ class ImageSubscriber(Node):
             cv2.line(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
 
         cv2.imshow('All detected lines', img)
-        y_inverted_found, rotorX, rotorY, angle, intersectionsAverageY, vertical_lines = self.findYShape(img3, lines, "Y shape from rgb image")
+        y_inverted_found, rotorX, rotorY, angle, intersectionsAverageY, vertical_lines = self.findYShape(copy_img, lines, "Y shape from rgb image")
         avg_dev_with_sign = determine_direction(self, rotorY, vertical_lines)
         if angle and intersectionsAverageY and avg_dev_with_sign:
             self.angleToHaveWTCenteredOnImagePublisher.publish(String(data=f"{angle},{intersectionsAverageY},{avg_dev_with_sign},0"))
@@ -173,41 +144,21 @@ class ImageSubscriber(Node):
             cv_8u = (cv_normalized * 255).astype(np.uint8)
 
             # Aplicar un mapa de colores para mejor visualización
-            cv_colored = cv2.applyColorMap(cv_8u, cv2.COLORMAP_JET)
+            img = cv2.applyColorMap(cv_8u, cv2.COLORMAP_JET)
+            copy_img = np.copy(img)
 
-
-            blurred = cv2.GaussianBlur(
-                cv_colored,
-                (9, 9), # size of the Gaussian kernel
-                2 # standard deviation in the X direction
-            )
-
-            # Apply Canny edge detector
-            edges = cv2.Canny(
-                blurred, 
-                threshold1=10, # lower threshold for the hysteresis procedure 
-                threshold2=150, # upper threshold for the hysteresis procedure 
-                apertureSize=3 # size of the Sobel kernel used for finding image gradients. It can be 1, 3, 5, or 7.
-            )
-
-            # Apply probabilistic Hough Line Transform
-            lines = cv2.HoughLinesP(
-                edges,
-                rho=1, # Distance resolution in pixels
-                theta=np.pi/180, # Angle resolution in radians
-                threshold=50, # Min number of votes/intersections for valid line
-                minLineLength=40, # Min allowed length of line
-                maxLineGap=25 # Max allowed gap between points on the same line to link them
-            )
+            lines = preproces_and_hough(self, img)
 
             if lines is None:
                 return
                         
             for line in lines:
                 x1, y1, x2, y2 = line[0]
-                cv2.line(cv_colored, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                cv2.line(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
 
-            y_inverted_found, rotorX, rotorY, angle, intersectionsAverageY, vertical_lines = self.findYShape(cv_colored, lines, "Y shape from depth image")
+            cv2.imshow('All detected lines', img)
+            
+            y_inverted_found, rotorX, rotorY, angle, intersectionsAverageY, vertical_lines = self.findYShape(copy_img, lines, "Y shape from depth image")
 
             if rotorX and rotorY:
                 distanceToRotor = get_distance_at_point(self, rotorX, rotorY, cv_image)
@@ -223,6 +174,36 @@ class ImageSubscriber(Node):
 
         except Exception as e:
             self.get_logger().error(f'Error en depth_listener_callback: {e}')
+
+def preproces_and_hough(self, image):
+    # Convert to grayscale
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+    # Apply Gaussian Blur
+    blurred = cv2.GaussianBlur(
+        gray,
+        (9, 9), # size of the Gaussian kernel
+        2 # standard deviation in the X direction
+    )
+
+    # Apply Canny edge detector
+    edges = cv2.Canny(
+        blurred, 
+        threshold1=10, # lower threshold for the hysteresis procedure 
+        threshold2=150, # upper threshold for the hysteresis procedure 
+        apertureSize=3 # size of the Sobel kernel used for finding image gradients. It can be 1, 3, 5, or 7.
+    )
+
+    # Apply probabilistic Hough Line Transform
+    lines = cv2.HoughLinesP(
+        edges,
+        rho=1, # Distance resolution in pixels
+        theta=np.pi/180, # Angle resolution in radians
+        threshold=50, # Min number of votes/intersections for valid line
+        minLineLength=40, # Min allowed length of line
+        maxLineGap=25 # Max allowed gap between points on the same line to link them
+    )
+    return lines
 
 def determine_direction_with_depth(self, y_inverted_found, depth_image):
     vertical_edge = None
