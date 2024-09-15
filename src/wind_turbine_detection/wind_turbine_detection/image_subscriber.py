@@ -23,12 +23,16 @@ CAMERA_FOV = 1.204 # radianes
 class ImageSubscriber(Node):
     def __init__(self):
         super().__init__('image_subscriber')
-        self.subscription = self.create_subscription(
+        # self.subscription = self.create_subscription(
+        #     Image,
+        #     'camera',
+        #     self.listener_callback,
+        #     10)
+        self.depth_subscription = self.create_subscription(
             Image,
-            'camera',
-            self.listener_callback,
+            'depth_camera',
+            self.depth_listener_callback,
             10)
-        self.subscription
         self.br = CvBridge()
         self.angleToHaveWTCenteredOnImagePublisher = self.create_publisher(String, 'angle_to_have_wt_centered_on_image', 10)
         # print(model.names)
@@ -43,39 +47,9 @@ class ImageSubscriber(Node):
         # img = results[0].plot()
         
         img = image
-        img2 = np.copy(img)
-        img3 = np.copy(img)
+        copy_img = np.copy(img)
 
-        # Convert to grayscale
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        #cv2.imshow('Grayscale Image', gray)
-
-        # Apply Gaussian Blur
-        blurred = cv2.GaussianBlur(
-            gray,
-            (9, 9), # size of the Gaussian kernel
-            2 # standard deviation in the X direction
-        )
-        # cv2.imshow('Blurred Image', blurred)
-
-        # Apply Canny edge detector
-        edges = cv2.Canny(
-            blurred, 
-            threshold1=10, # lower threshold for the hysteresis procedure 
-            threshold2=150, # upper threshold for the hysteresis procedure 
-            apertureSize=3 # size of the Sobel kernel used for finding image gradients. It can be 1, 3, 5, or 7.
-        )
-        # cv2.imshow('Edges', edges)
-
-        # Apply probabilistic Hough Line Transform
-        lines = cv2.HoughLinesP(
-            edges,
-            rho=1, # Distance resolution in pixels
-            theta=np.pi/180, # Angle resolution in radians
-            threshold=50, # Min number of votes/intersections for valid line
-            minLineLength=40, # Min allowed length of line
-            maxLineGap=25 # Max allowed gap between points on the same line to link them
-        )
+        lines = preproces_and_hough(self, img)
 
         if lines is None:
             return
@@ -83,11 +57,17 @@ class ImageSubscriber(Node):
         for line in lines:
             x1, y1, x2, y2 = line[0]
             cv2.line(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
-        cv2.imshow('All detected lines', img)
 
+        cv2.imshow('All detected lines', img)
+        y_inverted_found, rotorX, rotorY, angle, intersectionsAverageY, vertical_lines = self.findYShape(copy_img, lines, "Y shape from rgb image")
+        avg_dev_with_sign = determine_direction(self, rotorY, vertical_lines)
+        if angle and intersectionsAverageY and avg_dev_with_sign:
+            self.angleToHaveWTCenteredOnImagePublisher.publish(String(data=f"{angle},{intersectionsAverageY},{avg_dev_with_sign},0"))
+
+    def findYShape(self, img, lines, img_name):
         # Find configurations of lines that form a 'Y' inverted shape
         y_inverted_found, verticalLine = y_inverted(lines)
-
+        
         # Draw the detected lines on the image
         if y_inverted_found:
             intersections = []
@@ -102,20 +82,21 @@ class ImageSubscriber(Node):
             # Dibuja las líneas
             for line in y_inverted_found:
                 x1, y1, x2, y2 = line[0]
-                cv2.line(img3, (x1, y1), (x2, y2), (0, 255, 0), 2) # LINEAS Y INVERTIDA VERDE
+                cv2.line(img, (x1, y1), (x2, y2), (0, 255, 0), 2) # LINEAS Y INVERTIDA VERDE
 
             intersectionsAverageX = 0
             intersectionsAverageY = 0
             for (x, y) in intersections:
-                cv2.circle(img3, (x, y), 5, (0, 0, 255), -1) # PUNTOS INTERSECCION ROJO
+                cv2.circle(img, (x, y), 5, (0, 0, 255), -1) # PUNTOS INTERSECCION ROJO
                 intersectionsAverageX += x
                 intersectionsAverageY += y
 
             if intersections:
                 rotorY = intersectionsAverageY / len(intersections)
+                rotorX = intersectionsAverageX / len(intersections)
                 intersectionsAverageX = intersectionsAverageX / len(intersections) / img.shape[1]
                 intersectionsAverageY = intersectionsAverageY / len(intersections) / img.shape[0]
-                cv2.circle(img3, (int(intersectionsAverageX), int(intersectionsAverageY)), 5, (255, 0, 0), -1)
+                cv2.circle(img, (int(intersectionsAverageX), int(intersectionsAverageY)), 5, (255, 0, 0), -1)
                 percentageInImage = (x1 + x2) / 2 / img.shape[1]
                 fieldOfView = math.degrees(CAMERA_FOV)
 
@@ -126,36 +107,215 @@ class ImageSubscriber(Node):
                         if is_vertical(x1, y1, x2, y2):
                             vertical_lines.append(line)
 
-                # avg_dev, orientation = determine_direction(self, y_inverted_found)
-                avg_dev_with_sign = determine_direction_2(self, rotorY, vertical_lines)
-                self.angleToHaveWTCenteredOnImagePublisher.publish(String(data=f"{percentageInImage * fieldOfView - fieldOfView / 2},{intersectionsAverageY},{avg_dev_with_sign}"))
+                angle = percentageInImage * fieldOfView - fieldOfView / 2
+            cv2.imshow(img_name, img)
+            cv2.waitKey(1)
+            return y_inverted_found, rotorX, rotorY, angle, intersectionsAverageY, vertical_lines
+        return None, None, None, None, None, None
 
-            # self.get_logger().info(f"Y Inverted Shape found")
-            cv2.imshow('Y Inverted Shape', img3)
+
+    def depth_listener_callback(self, data):
+        try:
+            # Convertir el mensaje de imagen de ROS a una imagen de OpenCV
+            cv_image = self.br.imgmsg_to_cv2(data, desired_encoding='passthrough')
+
+            # Manejar valores NaN o infinitos
+            cv_image = np.nan_to_num(cv_image, nan=0.0, posinf=0.0, neginf=0.0)
+
+            if (cv_image is None or cv_image.size == 0 or cv_image.shape[0] == 0 or cv_image.shape[1] == 0):
+                return
+
+            # Filtrar los valores mayores a 0
+            positive_values = cv_image[cv_image > 0]
+            
+            # Verificar si hay valores mayores a 0
+            if positive_values.size == 0:
+                return
+
+            # Definir los valores mínimo y máximo para la normalización
+            min_distance = np.min(positive_values)
+            max_distance = np.max(cv_image)
+
+            # Normalizar la imagen de profundidad
+            cv_normalized = (cv_image - min_distance) / (max_distance - min_distance)
+            cv_normalized = np.clip(cv_normalized, 0, 1)
+
+            # Escalar a 0-255 y convertir a uint8
+            cv_8u = (cv_normalized * 255).astype(np.uint8)
+
+            # Aplicar un mapa de colores para mejor visualización
+            img = cv2.applyColorMap(cv_8u, cv2.COLORMAP_JET)
+            copy_img = np.copy(img)
+
+            lines = preproces_and_hough(self, img)
+
+            if lines is None:
+                return
+                        
+            for line in lines:
+                x1, y1, x2, y2 = line[0]
+                cv2.line(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
+
+            cv2.imshow('All detected lines', img)
+            
+            y_inverted_found, rotorX, rotorY, angle, intersectionsAverageY, vertical_lines = self.findYShape(copy_img, lines, "Y shape from depth image")
+
+            if rotorX and rotorY:
+                distanceToRotor = get_distance_at_point(self, rotorX, rotorY, cv_image)
+
+                # if distanceToRotor:
+                #     self.get_logger().info(f'Distancia en rotor ({rotorX}, {rotorY}): {distanceToRotor} metros')
+            
+            if y_inverted_found:
+                avg_dev_with_sign = determine_direction_with_depth(self, y_inverted_found, cv_image)                
+            
+            if angle and intersectionsAverageY and avg_dev_with_sign:
+                self.angleToHaveWTCenteredOnImagePublisher.publish(String(data=f"{angle},{intersectionsAverageY},{avg_dev_with_sign},1"))
+
+        except Exception as e:
+            self.get_logger().error(f'Error en depth_listener_callback: {e}')
+
+def preproces_and_hough(self, image):
+    # Convert to grayscale
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+    # Apply Gaussian Blur
+    blurred = cv2.GaussianBlur(
+        gray,
+        (9, 9), # size of the Gaussian kernel
+        2 # standard deviation in the X direction
+    )
+
+    # Apply Canny edge detector
+    edges = cv2.Canny(
+        blurred, 
+        threshold1=10, # lower threshold for the hysteresis procedure 
+        threshold2=150, # upper threshold for the hysteresis procedure 
+        apertureSize=3 # size of the Sobel kernel used for finding image gradients. It can be 1, 3, 5, or 7.
+    )
+
+    # Apply probabilistic Hough Line Transform
+    lines = cv2.HoughLinesP(
+        edges,
+        rho=1, # Distance resolution in pixels
+        theta=np.pi/180, # Angle resolution in radians
+        threshold=50, # Min number of votes/intersections for valid line
+        minLineLength=40, # Min allowed length of line
+        maxLineGap=25 # Max allowed gap between points on the same line to link them
+    )
+    return lines
+
+def determine_direction_with_depth(self, y_inverted_found, depth_image):
+    vertical_edge = None
+    left_edge = None
+    right_edge = None
+
+    for line in y_inverted_found:
+        m = slope(line)
+        if m == float('inf'):
+            vertical_edge = line
+        elif m < 0:
+            left_edge = line
+        else:
+            right_edge = line
+
+    if vertical_edge is None or left_edge is None or right_edge is None:
+        return None
+
+    lx1, ly1, lx2, ly2 = left_edge[0]
+    rx1, ry1, rx2, ry2 = right_edge[0]
+
+    upper_ly = min(ly1, ly2)
+    lower_ly = max(ly1, ly2)
+
+    upper_ry = min(ry1, ry2)
+    lower_ry = max(ry1, ry2)
+
+    lower_y_coincidence = None
+    if lower_ly <= lower_ry and lower_ly >= upper_ry:
+        lower_y_coincidence = lower_ly
+    elif lower_ry <= lower_ly and lower_ry >= upper_ly:
+        lower_y_coincidence = lower_ry
+    
+    if lower_y_coincidence:        
+        # Calcula la pendiente (m) e intersección (b) de ambas líneas
+        m_left = slope(left_edge)
+        b_left = intercept(left_edge, m_left)
         
-        # Dibujar las líneas verticales en la imagen
-        # for line in vertical_lines:
-        #     x1, y1, x2, y2 = line[0]
-        #     cv2.line(img2, (x1, y1), (x2, y2), (0, 255, 0), 2) # LINEAS VERTICALES VERDE
+        m_right = slope(right_edge)
+        b_right = intercept(right_edge, m_right)
+        
+        # Obtén el valor de x para el y de lower_coincidence en ambas líneas
+        x_left = x_at_y(m_left, b_left, lower_y_coincidence, lx1 if m_left == float('inf') else None)
+        x_right = x_at_y(m_right, b_right, lower_y_coincidence, rx1 if m_right == float('inf') else None)
+        
+        distance_left = get_distance_at_approx_x_point(self, x_left, lower_y_coincidence, depth_image)
+        distance_right = get_distance_at_approx_x_point(self, x_right, lower_y_coincidence, depth_image)
 
-        # if vertical_lines:
-        #     highest = highest_point(vertical_lines)
-        #     if highest:
-        #         # Dibujar el punto más alto en la imagen
-        #         # First estimate of the hub
-        #         cv2.circle(img2, highest, 5, (0, 0, 255), -1) # PUNTO MAS ALTO ROJO
+        if distance_left is None or distance_right is None:
+            return None
 
-        #     distancia_max = 5
-        #     possible_blades = close_lines(lines, highest, distancia_max)
-        #     # Dibujar posibles aspas
-        #     for line in possible_blades:
-        #         x1, y1, x2, y2 = line[0]
-        #         cv2.line(img2, (x1, y1), (x2, y2), (255, 0, 0), 2) # POSIBLES ASPAS AZUL 
+        avg_dev = (abs(distance_left - distance_right))
 
-        # cv2.imshow('Line recognition', img2)
+        orientation = 0
+        if distance_left < distance_right:
+            orientation = 1 # Sentido antihorario: 1
+        elif distance_left > distance_right:
+            orientation = -1 # Sentido horario: -1
 
-        cv2.waitKey(1)
+        return (avg_dev * orientation)
+    return None
 
+# Calcula la intersección con el eje y (b) de la ecuación y = mx + b
+def intercept(line, m):
+    if m == float('inf'):
+        return None  # Línea vertical, no tiene intersección en el eje y
+    x1, y1, _, _ = line[0]
+    return y1 - m * x1
+
+# Calcula el valor de x dado un valor de y en la ecuación y = mx + b
+# o devuelve el valor constante de x si la línea es vertical
+def x_at_y(m, b, y, vertical_x=None):
+    if m == float('inf'):
+        return vertical_x  # Línea vertical, siempre tiene un x constante
+    return (y - b) / m
+
+def get_distance_at_approx_x_point(self, x, y, depth_image, max_margin=5):
+    distance = get_distance_at_point(self, x, y, depth_image)
+    if distance > 0:
+        return distance
+    
+    for margin in range(1, max_margin + 1):
+        # Verifica en las posiciones a la izquierda y a la derecha del punto (x, y)
+        for dx in [margin, -margin]:
+            distance = get_distance_at_point(self, x + dx, y, depth_image)
+            if distance > 0:
+                return distance
+            
+        # # Verifica en las posiciones adicionales alrededor del punto (x, y)
+        # for dx in range(1, margin):
+        #     for dy in [margin, -margin]:
+        #         distance = get_distance_at_point(self, x + dx, y + dy, depth_image)
+        #         if distance > 0:
+        #             return distance
+                
+        #         distance = get_distance_at_point(self, x - dx, y + dy, depth_image)
+        #         if distance > 0:
+        #             return distance
+
+    return None
+
+def get_distance_at_point(self, x, y, depth_image):
+    x = math.floor(x)
+    y = math.floor(y)
+    # Verifica si el punto está dentro de los límites de la imagen
+    if 0 <= x < depth_image.shape[1] and 0 <= y < depth_image.shape[0]:
+        # Obtiene el valor de distancia en el punto (x, y)
+        distance = depth_image[y, x]
+        return distance
+    else:
+        self.get_logger().error(f'El punto ({x}, {y}) está fuera de los límites de la imagen.')
+        return None
 
 # Determina si una línea es vertical dentro de un margen de error
 def is_vertical(x1, y1, x2, y2, error_margin=15):
@@ -282,62 +442,7 @@ def find_line_intersection(line1, line2, tolerance=0.1):
 
     return (int(x), int(y))
 
-# NO ANDA MUY BIEN PERO LO DEJO POR SI ACASO
-# precondicion: estar a la altura del rotor
-def determine_direction(self, lines, error_margin=3):
-    vertical_edge = None
-    left_edge = None
-    right_edge = None
-    for line in lines:
-        m = slope(line)
-        if m == float('inf'):
-            vertical_edge = line
-        elif m > 0:
-            left_edge = line
-        else:
-            right_edge = line
-
-    if vertical_edge is None or left_edge is None or right_edge is None:
-        return None
-
-    vertical_m = slope(vertical_edge)
-    left_m = slope(left_edge)
-    right_m = slope(right_edge)
-
-    left_angle = 180 - calculate_angle_between_lines(left_m, vertical_m)
-    right_angle = 180 - calculate_angle_between_lines(vertical_m, right_m)
-
-    dev_left = abs(left_angle - 120)
-    dev_right = abs(right_angle - 120)
-
-    avg_dev = (dev_left + dev_right) / 2
-
-    if abs(dev_left - dev_right) > error_margin:
-        if dev_left > dev_right:
-            if left_angle < 120 - error_margin:
-                orientation = -1  # Negativo, gira en sentido horario
-            elif left_angle > 120 + error_margin:
-                orientation = 1  # Positivo, gira en sentido antihorario
-            else:
-                orientation = 0  # No me debo mover
-        else:
-            if right_angle < 120 - error_margin:
-                orientation = 1  # Positivo, gira en sentido antihorario
-            elif right_angle > 120 + error_margin:
-                orientation = -1  # Negativo, gira en sentido horario
-            else:
-                orientation = 0  # No me debo mover
-    else: # Si las desviaciones son parecidas le hago caso al angulo derecho
-        if right_angle < 120 - error_margin:
-            orientation = 1  # Positivo, gira en sentido antihorario
-        elif right_angle > 120 + error_margin:
-            orientation = -1  # Negativo, gira en sentido horario
-        else:
-            orientation = 0  # No me debo mover
-
-    return avg_dev, orientation
-
-def determine_direction_2(self, rotorY, vertical_lines, margin_error=5):
+def determine_direction(self, rotorY, vertical_lines, margin_error=5):
     upper_lines = []
     lower_lines = []
     for line in vertical_lines:

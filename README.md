@@ -35,6 +35,9 @@ pip install numpy
 pip install opencv-python
 pip install ultralytics
 pip install geopy
+pip install ortools
+pip install numpy-stl
+pip install k-means-constrained
 ```
 
 ### Mundos y modelos
@@ -86,8 +89,10 @@ En `Tools/simulation/gz/models/OakD-Lite/model.sdf` realizar las siguientes modi
             <format>R_FLOAT32</format>
           </image>
           <clip>
-            <near>0.2</near>
-            <far>19.1</far>
+-            <near>0.2</near>
+-            <far>19.1</far>
++            <near>8</near>
++            <far>80</far>
           </clip>
         </camera>
         <always_on>1</always_on>
