@@ -28,6 +28,7 @@ class OffboardControl(Node):
         self.shouldArmAndTakeoff = False
         self.inTakeoffProcedure = False
 
+        self.positionCorrectionSetpoint = None
         self.timer = self.create_timer(0.1, self.timer_callback)
 
         self.subscription = self.create_subscription(
@@ -119,6 +120,20 @@ class OffboardControl(Node):
         self.waypointReachedPublisher = self.create_publisher(String, 'waypoint_reached', 10)
         self.currentHeading = 0.0
         self.wayPointsGroupedForHeading = []
+        self.correctDronePositionSubscriber = self.create_subscription(
+            String,
+            'correct_drone_position',
+            self.correctDronePositionCallback,
+            10
+        )
+
+    def correctDronePositionCallback(self, msg):
+        self.blockNewWaypoints = True
+        try:
+            n, e, d, yaw = map(float, msg.data.split(','))
+            self.positionCorrectionSetpoint = (n, e, d, yaw)
+        except ValueError:
+            self.get_logger().error('Invalid waypoint format. Expected format: "x,y,z,yaw"')
 
 
     def changeDroneHeightCallback(self, msg):
@@ -234,11 +249,21 @@ class OffboardControl(Node):
         self.publish_trajectory_setpoint()
 
         if not self.processing_waypoint:
-            if self.wayPointsStack:
+            if self.wayPointsStack or self.positionCorrectionSetpoint:
                 self.processing_waypoint = True
-                x, y, z, yaw, message = self.wayPointsStack.pop(0)
+                correctingPosition = False
+                if self.positionCorrectionSetpoint:
+                    currentHeading = self.currentHeading
+                    north, east, down, yaw = self.positionCorrectionSetpoint
+                    newNorth, newEast, newDown = rotate_ned(north, east, down, currentHeading)
+                    
+                    message = EMPTY_MESSAGE
+                    self.positionCorrectionSetpoint = None
+                    correctingPosition = True
+                else:
+                    newNorth, newEast, newDown, yaw, message = self.wayPointsStack.pop(0)
 
-                if self.wayPointsStack:
+                if self.wayPointsStack and not correctingPosition:
                     xNext, yNext, zNext, _, _ = self.wayPointsStack[0]
                 else:
                     xNext, yNext, zNext, yawNext = (0.0, 0.0, 0.0, 0.0)
@@ -257,7 +282,7 @@ class OffboardControl(Node):
                 else:
                     self.currentSetpointEndSpeed = newPossibleSpeed
 
-                self.setNewSetpoint(x, y, z, yaw, message)
+                self.setNewSetpoint(newNorth, newEast, newDown, yaw, message)
                 return
             elif self.wayPointsGroupedForHeading:
                 currentHeading = self.currentHeading
