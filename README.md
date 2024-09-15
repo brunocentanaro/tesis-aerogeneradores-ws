@@ -35,6 +35,9 @@ pip install numpy
 pip install opencv-python
 pip install ultralytics
 pip install geopy
+pip install ortools
+pip install numpy-stl
+pip install k-means-constrained
 ```
 
 ### Mundos y modelos
