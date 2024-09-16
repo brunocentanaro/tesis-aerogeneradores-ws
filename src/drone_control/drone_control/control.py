@@ -24,7 +24,7 @@ class OffboardControl(Node):
         self.processing_waypoint = False
         self.currentLocalPosition = None
         self.nearTicker = 0
-        self.maxSpeed = 1/9
+        self.maxSpeed = 2.5/9
         self.shouldArmAndTakeoff = False
         self.inTakeoffProcedure = False
 
@@ -118,6 +118,7 @@ class OffboardControl(Node):
         self.manual_control_setpoint_publisher = self.create_publisher(ManualControlSetpoint, '/fmu/in/manual_control_setpoint', 10)
         self.waypointReachedPublisher = self.create_publisher(String, 'waypoint_reached', 10)
         self.currentHeading = 0.0
+        self.lastInspectionLocation = (0, 0, 0)
         self.wayPointsGroupedForHeading = []
 
 
@@ -270,29 +271,27 @@ class OffboardControl(Node):
                 
                     newNorth, newEast, newDown = rotate_ned(north, east, down, currentHeading)
                     self.wayPointsStack.append((newNorth, newEast, newDown, yawChange, message))
-
+    
     def inspectWindTurbine(self, msg):
+        rotorDiameter, bladeLength = map(float, msg.split(','))
         self.get_logger().info('Received: "%s"' % msg.data)
         try:
-            tapia = path_planner(WindTurbine(6, 39, "src/drone_control/drone_control/path_planner/stl_gen/turbine"), (0,0,0))
-            self.get_logger().info('tapia: %s' % tapia)
-            # bladeLength = float(msg.data)
-            # angleFromHorizontal = 30.0
-            # x = 0.0
-            # y = bladeLength * math.cos(math.radians(angleFromHorizontal))
-            # z = bladeLength * math.sin(math.radians(angleFromHorizontal))
+            path = path_planner(WindTurbine(rotorDiameter, bladeLength, "src/drone_control/drone_control/path_planner/stl_gen/turbine"), self.lastInspectionLocation)
+            self.get_logger().info('path: %s' % path)
             previous = (0, 0, 0)
             previous_group = None
             newWaypointsGroup = []
-            for i in range(len(tapia)):
-                group_id, (x, y, z) = tapia[i]
+            for i in range(len(path)):
+                group_id, (x, y, z) = path[i]
                 xToUse, yToUse, zToUse = x - previous[0], y - previous[1], z - previous[2]
-                previous = (x, y, z)
                 if previous_group is not None and group_id == previous_group:
                     newWaypointsGroup.extend(self.addIntermediateWaypoints(xToUse, yToUse, zToUse, 0.0))
                 else:
                     newWaypointsGroup.append((xToUse, yToUse, zToUse, 0.0, EMPTY_MESSAGE))
                 previous_group = group_id
+                previous = (x, y, z)
+            _, (x, y, z) = path[-1]
+            self.lastInspectionLocation = (x, y, z)
             latestWaypoint = newWaypointsGroup[-1]
             newWaypointsGroup[-1] = (latestWaypoint[0], latestWaypoint[1], latestWaypoint[2], latestWaypoint[3], 'wind turbine')
             self.wayPointsGroupedForHeading.append(newWaypointsGroup)
