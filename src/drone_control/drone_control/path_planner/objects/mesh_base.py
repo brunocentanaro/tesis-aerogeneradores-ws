@@ -62,7 +62,7 @@ class Wireframe:
 
     @staticmethod
     def from_stl_path(path):
-        stl = mesh.Mesh.from_file(str(path))
+        stl = mesh.Mesh.from_file(path + ".stl")
         return Wireframe.from_stl(stl)
     
 def random_color():

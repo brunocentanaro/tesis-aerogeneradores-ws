@@ -10,8 +10,8 @@ class WindTurbineInspectionStage(Enum):
     TAKEOFF = "takeoff"
     APPROACH = "approach"
     ORTHOGONAL_ALIGNMENT = "orthogonal_alignment"
-    FRONT_INSPECTION = "front_inspection"
-    BACK_INSPECTION = "back_inspection"
+    INSPECTION = "inspection"
+    ROTATION = "rotation"
     RETURN_HOME = "return_home"
 
 class InspectionState(ABC, Node):
@@ -33,7 +33,6 @@ class InspectionState(ABC, Node):
     
     def get_future(self):
         return self._future
-        
 
     @classmethod
     def update_shared_state(cls, key, value):
