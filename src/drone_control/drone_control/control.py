@@ -24,7 +24,7 @@ class OffboardControl(Node):
         self.processing_waypoint = False
         self.currentLocalPosition = None
         self.nearTicker = 0
-        self.maxSpeed = 2.5/9
+        self.maxSpeed = 1/9
         self.shouldArmAndTakeoff = False
         self.inTakeoffProcedure = False
 
