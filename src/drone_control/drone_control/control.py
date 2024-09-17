@@ -273,12 +273,12 @@ class OffboardControl(Node):
                     self.wayPointsStack.append((newNorth, newEast, newDown, yawChange, message))
     
     def inspectWindTurbine(self, msg):
-        rotorDiameter, bladeLength = map(float, msg.split(','))
+        rotorDiameter, bladeLength = map(float, msg.data.split(','))
         self.get_logger().info('Received: "%s"' % msg.data)
         try:
             path = path_planner(WindTurbine(rotorDiameter, bladeLength, "src/drone_control/drone_control/path_planner/stl_gen/turbine"), self.lastInspectionLocation)
             self.get_logger().info('path: %s' % path)
-            previous = (0, 0, 0)
+            previous = self.lastInspectionLocation
             previous_group = None
             newWaypointsGroup = []
             for i in range(len(path)):
