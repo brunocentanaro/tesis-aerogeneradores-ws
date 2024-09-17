@@ -27,7 +27,7 @@ class WindTurbineInspectionStateMachine(Node):
         if current_state is IdleState:
             self.current_state = TakeoffState(self)
         elif current_state is TakeoffState:
-            self.current_state = RegistrationState(self)
+            self.current_state = ApproachState(self)
         elif current_state is ApproachState:
             self.current_state = OrthogonalAlignmentState(self)
         elif current_state is OrthogonalAlignmentState:
