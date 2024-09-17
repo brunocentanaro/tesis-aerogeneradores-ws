@@ -4,10 +4,10 @@ from drone_control.path_planner.shortest_path import shortest_path_from_stl, plo
 def path_planner(windTurbine:WindTurbine=WindTurbine(6, 39, "stl_gen/turbine"), start_position=[-10, 0, 0], end_position=None, safe_distance=0):
     create_stl(windTurbine)
     traj = shortest_path_from_stl(point_from_machine(start_position), point_from_machine(end_position), safe_distance, windTurbine.stl_path)
-    points_only = [item[1] for item in traj]
-    plot_best_order(points_only)
-    plot_points(points_only)
-    return result_to_machine(traj)
+    #points_only = [item[1] for item in traj]
+    #plot_best_order(points_only)
+    #plot_points(points_only)
+    return result_to_machine(traj[1:])
 
 def point_from_machine(point):
     if point is None:

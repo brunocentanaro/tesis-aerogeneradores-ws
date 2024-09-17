@@ -1,8 +1,8 @@
 import rclpy
 from rclpy.node import Node
 from wind_turbine_inspection.states.ApproachState import ApproachState
-from wind_turbine_inspection.states.BackInspectionState import BackInspectionState
-from wind_turbine_inspection.states.FrontInspectionState import FrontInspectionState
+from wind_turbine_inspection.states.RegistrationState import RegistrationState
+from wind_turbine_inspection.states.RotationState import RotationState
 from wind_turbine_inspection.states.IdleState import IdleState
 from wind_turbine_inspection.states.OrthogonalAlignmentState import OrthogonalAlignmentState
 from wind_turbine_inspection.states.ReturnHomeState import ReturnHomeState
@@ -12,6 +12,7 @@ class WindTurbineInspectionStateMachine(Node):
     def __init__(self):
         super().__init__('inspection_state_machine')
         self.current_state = IdleState(self)
+        self.completedInspectionRounds = 0
         self.spin_until_state_complete()
 
     def spin_until_state_complete(self):
@@ -30,11 +31,14 @@ class WindTurbineInspectionStateMachine(Node):
         elif current_state is ApproachState:
             self.current_state = OrthogonalAlignmentState(self)
         elif current_state is OrthogonalAlignmentState:
-            self.current_state = FrontInspectionState(self)
-        elif current_state is FrontInspectionState:
-            self.current_state = BackInspectionState(self)
-        elif current_state is BackInspectionState:
-            self.current_state = ReturnHomeState(self)
+            self.current_state = RegistrationState(self)
+        elif current_state is RegistrationState:
+            if self.completedInspectionRounds < 4:
+                self.current_state = RotationState(self)
+            else:
+                self.current_state = ReturnHomeState(self)
+        elif current_state is RotationState:
+            self.current_state = RegistrationState(self)
         elif current_state is ReturnHomeState:
             self.current_state = IdleState(self)
         else:
