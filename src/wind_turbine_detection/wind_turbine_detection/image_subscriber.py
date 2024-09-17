@@ -66,6 +66,8 @@ class ImageSubscriber(Node):
             return
         if (self.imageRecognitionState == ImageRecognitionState.ALIGNMENT):
             self.alignment_listener_callback(data)
+        if (self.imageRecognitionState == ImageRecognitionState.INSPECTION):
+            self.inspection_listener_callback(data)
 
 
     def alignment_listener_callback(self, data):
@@ -117,7 +119,46 @@ class ImageSubscriber(Node):
                 self.angleToHaveWTCenteredOnImagePublisher.publish(String(data=f"{angle},{intersectionsAverageY},{avg_dev_with_sign},1"))
 
         except Exception as e:
-            self.get_logger().error(f'Error en depth_listener_callback: {e}')
+            self.get_logger().error(f'Error en alignment_listener_callback: {e}')
+
+    def inspection_listener_callback(self, data):
+        try:
+            cv_image = self.br.imgmsg_to_cv2(data, desired_encoding='passthrough')
+            cv_image = np.nan_to_num(cv_image, nan=0.0, posinf=0.0, neginf=0.0)
+
+            if (cv_image is None or cv_image.size == 0 or cv_image.shape[0] == 0 or cv_image.shape[1] == 0):
+                return
+            positive_values = cv_image[cv_image > 0]
+            
+            if positive_values.size == 0:
+                return
+
+            min_distance = np.min(positive_values)
+            max_distance = np.max(cv_image)
+
+            cv_normalized = (cv_image - min_distance) / (max_distance - min_distance)
+            cv_normalized = np.clip(cv_normalized, 0, 1)
+
+            cv_8u = (cv_normalized * 255).astype(np.uint8)
+
+            img = cv2.applyColorMap(cv_8u, cv2.COLORMAP_JET)
+            copy_img = np.copy(img)
+
+            lines = preproces_and_hough(img)
+
+            if lines is None:
+                return
+                        
+            for line in lines:
+                x1, y1, x2, y2 = line[0]
+                cv2.line(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
+
+            cv2.imshow('All detected lines', img)
+            
+            # TODO: CONTINUE HERE
+
+        except Exception as e:
+            self.get_logger().error(f'Error en inspection_listener_callback: {e}')
 
 
 
