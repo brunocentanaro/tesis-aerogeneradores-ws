@@ -8,7 +8,7 @@ setup(
     name=package_name,
     version='0.0.0',
     packages=find_packages(exclude=['test']),
-   data_files=[
+    data_files=[
         # Install the package.xml
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
@@ -39,7 +39,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'control = drone_control.control:main'
+            'control = drone_control.control:main',
+            'gimbal_stabilizer = drone_control.gimbal_stabilizer:main',
         ],
     },
 )
