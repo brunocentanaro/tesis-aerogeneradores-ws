@@ -12,5 +12,11 @@ def generate_launch_description():
             # output='screen'
             namespace="drone_control"
         ),
+        Node(
+            package='drone_control',
+            executable='gimbal_stabilizer',
+            name='gimbal_stabilizer',
+            output='screen',
+        ),
     ])
 

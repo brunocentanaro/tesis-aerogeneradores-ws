@@ -14,7 +14,7 @@ def generate_launch_description():
     )
     control_launch_path = os.path.join(
         get_package_share_directory('drone_control'),
-        'drone_control.launch.py'
+        'launch/drone_control.launch.py'
     )
     return LaunchDescription([
         DeclareLaunchArgument(
