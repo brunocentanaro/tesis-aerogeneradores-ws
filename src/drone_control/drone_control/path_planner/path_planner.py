@@ -7,7 +7,7 @@ def path_planner(windTurbine:WindTurbine=WindTurbine(6, 39, "stl_gen/turbine"), 
     #points_only = [item[1] for item in traj]
     #plot_best_order(points_only)
     #plot_points(points_only)
-    return result_to_machine(traj)
+    return result_to_machine(traj[1:])
 
 def point_from_machine(point):
     if point is None:
