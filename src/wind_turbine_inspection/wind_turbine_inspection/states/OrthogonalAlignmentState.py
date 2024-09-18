@@ -99,7 +99,7 @@ class OrthogonalAlignmentState(InspectionState):
             elif self.current_substate == AlignmentSubstate.BECOME_ORTHOGONAL :
                 if len(self.lastDevs) >= 10:
                     median_dev = np.median(self.lastDevs)
-                    degrees = (median_dev - (median_dev/abs(median_dev))*5 ) * factor if median_dev != 0 else 0
+                    degrees = median_dev * factor
                     if abs(degrees) > angle_threshold and self.current_distance > MIN_DISTANCE * 2:
                         moveCenteredMsg = String()
                         moveCenteredMsg.data = f"{degrees},{self.current_distance}"
