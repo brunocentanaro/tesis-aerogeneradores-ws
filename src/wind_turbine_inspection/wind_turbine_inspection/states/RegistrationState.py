@@ -9,8 +9,11 @@ class RegistrationState(InspectionState):
         rotorDiameter = windTurbineTypeAndLocation[self.shared_state['mission_param']]['rotorDiameter']
         self.startInspectionPublisher = self.create_publisher(String, '/drone_control/inspect_wind_turbine', 10)
         self.startInspectionPublisher.publish(String(data=f"{rotorDiameter},{bladeLength}"))
+        self.changeImageSubscriberModePublisher = self.create_publisher(String, 'change_mode', 10)
+        self.changeImageSubscriberModePublisher.publish(String(data="2"))
 
     def waypoint_reached_callback(self, msg):
         self.get_logger().info(f"RegistrationState received: {msg.data}")
         self.state_machine.completedInspectionRounds += 1
+        self.changeImageSubscriberModePublisher.publish(String(data="0"))
         self.advance_to_next_state()
