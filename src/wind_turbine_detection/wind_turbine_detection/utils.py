@@ -111,6 +111,9 @@ def x_at_y(m, b, y, vertical_x=None):
 
 def get_distance_at_approx_x_point(x, y, depth_image, max_margin=5):
     distance = get_distance_at_point(x, y, depth_image)
+    if (distance is None):
+        return None
+
     if distance > 0:
         return distance
     
@@ -142,6 +145,7 @@ def get_distance_at_point(x, y, depth_image):
         # Obtiene el valor de distancia en el punto (x, y)
         distance = depth_image[y, x]
         return distance
+    return None
 
 # Determina si una línea es vertical dentro de un margen de error
 def is_vertical(x1, y1, x2, y2, error_margin=15):
