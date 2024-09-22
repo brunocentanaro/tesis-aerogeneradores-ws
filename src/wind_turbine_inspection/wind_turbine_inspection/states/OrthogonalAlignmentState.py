@@ -43,7 +43,7 @@ class OrthogonalAlignmentState(InspectionState):
             return
 
         try:
-            angle,intersectionYPercentage, avgDevWithSign, type = map(float, msg.data.split(","))
+            angle,intersectionYPercentage, avgDevWithSign, type, distanceToRotor = map(float, msg.data.split(","))
             if type == 0: # Desviacion obtenida de lineas
                 factor = 0.3333
                 angle_threshold = 4
@@ -100,12 +100,12 @@ class OrthogonalAlignmentState(InspectionState):
                 if len(self.lastDevs) >= 10:
                     median_dev = np.median(self.lastDevs)
                     degrees = median_dev * factor
-                    if abs(degrees) > angle_threshold and self.current_distance > MIN_DISTANCE * 2:
+                    if abs(degrees) > angle_threshold and distanceToRotor > MIN_DISTANCE * 2:
                         moveCenteredMsg = String()
-                        moveCenteredMsg.data = f"{degrees},{self.current_distance}"
+                        moveCenteredMsg.data = f"{degrees},{distanceToRotor}"
                         self.moveCenteredPublisher.publish(moveCenteredMsg)
                         self.inAnOperation = True
-                        self.get_logger().info(f"Adjusting to become orthogonal by {degrees} degrees")
+                        self.get_logger().info(f"Adjusting to become orthogonal by {degrees} degrees in {distanceToRotor} m")
                     else:
                         # Move to next substate immediately
                         self.current_substate = AlignmentSubstate.INTERMEDIATE_APPROACH

@@ -3,11 +3,14 @@ from wind_turbine_inspection.states.constants import windTurbineTypeAndLocation
 from std_msgs.msg import String
 import numpy as np
 
-desired_movement_value_x = 0.5
-desired_movement_value_y = 0.5
+Y_THRESHOLD = 0.3
+X_THRESHOLD = 0.1
+desired_movement_value_x = 4
+desired_movement_value_y = 2.5
 desired_movement_value_z = 0.1
-MIN_DISTANCE = 9
+MIN_DISTANCE = 8
 MAX_DISTANCE = 11
+POINTS_NEEDED = 50
 
 
 class RegistrationState(InspectionState):
@@ -21,10 +24,11 @@ class RegistrationState(InspectionState):
         self.changeImageSubscriberModePublisher.publish(String(data="2"))
         self.inspectionDistancesSubscriber = self.create_subscription(String, 'inspection_distances', self.inspectionDistancesCallback, 10)
         self.correctDronePositionPublisher = self.create_publisher(String, '/drone_control/correct_drone_position', 10)
+        self.reEnableProcessingWaypointsPublisher = self.create_publisher(String, '/drone_control/re_enable_processing_waypoints', 10)
         self.inAnOperation = False
-        self.last50PercentX = []
-        self.last50PercentY = []
-        self.last50Distance = []
+        self.lastNeededPercentX = []
+        self.lastNeededPercentY = []
+        self.lastNeededDistance = []
 
     def inspectionDistancesCallback(self, msg):
         try:
@@ -32,41 +36,40 @@ class RegistrationState(InspectionState):
             if (self.inAnOperation):
                 # self.get_logger().info("En una operación, no se realizará corrección")
                 return
-            self.get_logger().info(f"Datos parseados: {percentageInX}, {percentageInY}, {distanceAtCentroid}")
 
-            self.last50PercentX.append(percentageInX)
-            self.last50PercentY.append(percentageInY)
-            self.last50Distance.append(distanceAtCentroid)
-            if len(self.last50PercentX) > 50:
-                self.last50PercentX.pop(0)
-            if len(self.last50PercentY) > 50:
-                self.last50PercentY.pop(0)
-            if len(self.last50Distance) > 50:
-                self.last50Distance.pop(0)
+            self.lastNeededPercentX.append(percentageInX)
+            self.lastNeededPercentY.append(percentageInY)
+            self.lastNeededDistance.append(distanceAtCentroid)
+            if len(self.lastNeededPercentX) > POINTS_NEEDED:
+                self.lastNeededPercentX.pop(0)
+            if len(self.lastNeededPercentY) > POINTS_NEEDED:
+                self.lastNeededPercentY.pop(0)
+            if len(self.lastNeededDistance) > POINTS_NEEDED:
+                self.lastNeededDistance.pop(0)
 
             
             
-            if len(self.last50PercentX) == 50:
-                medianX = np.median(self.last50PercentX)
-                medianY = np.median(self.last50PercentY)
-                medianDistance = np.median(self.last50Distance)
+            if len(self.lastNeededPercentX) == POINTS_NEEDED:
+                medianX = np.median(self.lastNeededPercentX)
+                medianY = np.median(self.lastNeededPercentY)
+                medianDistance = np.median(self.lastNeededDistance)
 
-                stdDevX = np.std(self.last50PercentX)
-                stdDevY = np.std(self.last50PercentY)
-                stdDevDistance = np.std(self.last50Distance)
+                stdDevX = np.std(self.lastNeededPercentX)
+                stdDevY = np.std(self.lastNeededPercentY)
+                stdDevDistance = np.std(self.lastNeededDistance)
 
                 self.get_logger().info(f"x: med: {medianX}, std: {stdDevX}, y: med: {medianY}, std: {stdDevY}, distance: med: {medianDistance}, std: {stdDevDistance}")
 
                 correction_vector = [0, 0, 0, 0]  # [north, east, down, yaw]
 
-                if medianX < 0.3:
-                    correction_vector[1] = desired_movement_value_x
-                elif medianX > 0.7:
+                if medianX < X_THRESHOLD:
                     correction_vector[1] = -desired_movement_value_x
+                elif medianX > 1 - X_THRESHOLD:
+                    correction_vector[1] = desired_movement_value_x
 
-                if medianY < 0.3:
+                if medianY < Y_THRESHOLD:
                     correction_vector[2] = -desired_movement_value_y 
-                elif medianY > 0.7:
+                elif medianY > 1 - Y_THRESHOLD:
                     correction_vector[2] = desired_movement_value_y
 
                 if medianDistance < MIN_DISTANCE or medianDistance > MAX_DISTANCE:
@@ -79,11 +82,11 @@ class RegistrationState(InspectionState):
                     self.correctDronePositionPublisher.publish(String(data=corrected_position_msg))
                     self.get_logger().info(f"Vector de corrección publicado: {corrected_position_msg}")
                     self.inAnOperation = True
-                    self.last50Distance = []
-                    self.last50PercentX = []
-                    self.last50PercentY = []
+                    self.lastNeededDistance = []
+                    self.lastNeededPercentX = []
+                    self.lastNeededPercentY = []
                 else:
-                    self.get_logger().info("Medianas dentro de los rangos aceptables, no se requiere corrección")
+                    self.reEnableProcessingWaypointsPublisher.publish(String(data=""))
         except ValueError:
             self.get_logger().error("Datos recibidos inválidos")
             return
