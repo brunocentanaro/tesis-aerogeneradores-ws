@@ -127,6 +127,16 @@ class OffboardControl(Node):
             self.correctDronePositionCallback,
             10
         )
+        self.reEnableProcessingWaypointsSubscriber = self.create_subscription(
+            String,
+            're_enable_processing_waypoints',
+            self.reEnableProcessingWaypointsCallback,
+            10
+        )
+        self.blockNewWaypoints = False
+    
+    def reEnableProcessingWaypointsCallback(self, msg):
+        self.blockNewWaypoints = False
 
     def correctDronePositionCallback(self, msg):
         self.blockNewWaypoints = True
@@ -251,6 +261,8 @@ class OffboardControl(Node):
 
         if not self.processing_waypoint:
             if self.wayPointsStack or self.positionCorrectionSetpoint:
+                if (self.positionCorrectionSetpoint == None and self.blockNewWaypoints):
+                    return
                 self.processing_waypoint = True
                 correctingPosition = False
                 if self.positionCorrectionSetpoint:

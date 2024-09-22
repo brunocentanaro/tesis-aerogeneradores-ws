@@ -342,21 +342,30 @@ def findYShape(img, lines, img_name):
             x1, y1, x2, y2 = line[0]
             cv2.line(img, (x1, y1), (x2, y2), (0, 255, 0), 2) # LINEAS Y INVERTIDA VERDE
 
-        intersectionsAverageX = 0
+        maxX = 0
+        maxY = 0
+        minX = img.shape[1]
+        minY = img.shape[0]
         intersectionsAverageY = 0
         for (x, y) in intersections:
-            cv2.circle(img, (x, y), 5, (0, 0, 255), -1) # PUNTOS INTERSECCION ROJO
-            intersectionsAverageX += x
-            intersectionsAverageY += y
+            cv2.circle(img, (x, y), 5, (0, 0, 255), -1)
+            if x > maxX:
+                maxX = x
+            if x < minX:
+                minX = x
+            if y > maxY:
+                maxY = y
+            if y < minY:
+                minY = y
 
         if intersections:
-            rotorY = intersectionsAverageY / len(intersections)
-            rotorX = intersectionsAverageX / len(intersections)
-            intersectionsAverageX = intersectionsAverageX / len(intersections) / img.shape[1]
-            intersectionsAverageY = intersectionsAverageY / len(intersections) / img.shape[0]
-            cv2.circle(img, (int(intersectionsAverageX), int(intersectionsAverageY)), 5, (255, 0, 0), -1)
+            rotorY = (maxY + minY) / 2
+            rotorX = (maxX + minX) / 2
+            percentageRotorY = rotorY / img.shape[0]
+            cv2.circle(img, (int(rotorX), int(rotorY)), 5, (255, 0, 0), -1)
             percentageInImage = (x1 + x2) / 2 / img.shape[1]
             fieldOfView = math.degrees(CAMERA_FOV)
+
 
             vertical_lines = []
             if lines is not None:
@@ -368,5 +377,5 @@ def findYShape(img, lines, img_name):
             angle = percentageInImage * fieldOfView - fieldOfView / 2
         cv2.imshow(img_name, img)
         cv2.waitKey(1)
-        return y_inverted_found, rotorX, rotorY, angle, intersectionsAverageY, vertical_lines
+        return y_inverted_found, rotorX, rotorY, angle, percentageRotorY, percentageRotorY
     return None, None, None, None, None, None

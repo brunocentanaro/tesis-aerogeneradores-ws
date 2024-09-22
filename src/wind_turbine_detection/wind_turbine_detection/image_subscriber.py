@@ -62,7 +62,7 @@ class ImageSubscriber(Node):
         y_inverted_found, rotorX, rotorY, angle, intersectionsAverageY, vertical_lines = findYShape(copy_img, lines, "Y shape from rgb image")
         avg_dev_with_sign = determine_direction(rotorY, vertical_lines)
         if angle and intersectionsAverageY and avg_dev_with_sign:
-            self.angleToHaveWTCenteredOnImagePublisher.publish(String(data=f"{angle},{intersectionsAverageY},{avg_dev_with_sign},0"))
+            self.angleToHaveWTCenteredOnImagePublisher.publish(String(data=f"{angle},{intersectionsAverageY},{avg_dev_with_sign},0,0"))
 
     def depth_listener_callback(self, data):
         if self.imageRecognitionState == ImageRecognitionState.OFF:
@@ -107,7 +107,7 @@ class ImageSubscriber(Node):
 
             cv2.imshow('All detected lines', img)
             cv2.waitKey(1)
-            y_inverted_found, rotorX, rotorY, angle, intersectionsAverageY, vertical_lines = findYShape(copy_img, lines, "Y shape from depth image")
+            y_inverted_found, rotorX, rotorY, angle, percentageRotorY, _ = findYShape(copy_img, lines, "Y shape from depth image")
 
             if rotorX and rotorY:
                 distanceToRotor = get_distance_at_point(rotorX, rotorY, cv_image)
@@ -118,8 +118,8 @@ class ImageSubscriber(Node):
             if y_inverted_found:
                 avg_dev_with_sign = determine_direction_with_depth(y_inverted_found, cv_image)                
             
-            if angle and intersectionsAverageY and avg_dev_with_sign:
-                self.angleToHaveWTCenteredOnImagePublisher.publish(String(data=f"{angle},{intersectionsAverageY},{avg_dev_with_sign},1"))
+            if angle and percentageRotorY and avg_dev_with_sign and distanceToRotor:
+                self.angleToHaveWTCenteredOnImagePublisher.publish(String(data=f"{angle},{percentageRotorY},{avg_dev_with_sign},1, {distanceToRotor}"))
 
         except Exception as e:
             self.get_logger().error(f'Error en alignment_listener_callback: {e}')
