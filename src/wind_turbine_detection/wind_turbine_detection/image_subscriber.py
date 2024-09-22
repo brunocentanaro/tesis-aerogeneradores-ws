@@ -31,6 +31,8 @@ class ImageSubscriber(Node):
         self.angleToHaveWTCenteredOnImagePublisher = self.create_publisher(String, 'angle_to_have_wt_centered_on_image', 10)
         self.imageRecognitionState = ImageRecognitionState.OFF
         self.changeModeSubscriber = self.create_subscription(String, 'change_mode', self.change_mode_callback, 10)
+        self.inspection_distances_publisher = self.create_publisher(String, 'inspection_distances', 10)
+        self.centroid_distance_was_zero = False
 
     def change_mode_callback(self, msg):
         try:
@@ -168,7 +170,16 @@ class ImageSubscriber(Node):
         # Mostrar la imagen con el centroide
         cv2.imshow("Depth Image with Centroid", img)
         cv2.waitKey(1)
+
+        depthAtCentroid = get_distance_at_point(int(centroid_x), int(centroid_y), cv_image)
+        percentageInXOfCentroid = centroid_x / cv_image.shape[1]
+        percentageInYOfCentroid = centroid_y / cv_image.shape[0]
+        if not self.centroid_distance_was_zero and depthAtCentroid == 0:
+            self.centroid_distance_was_zero = True
         
+        if (self.centroid_distance_was_zero and depthAtCentroid > 0):
+            self.inspection_distances_publisher.publish(String(data=f"{percentageInXOfCentroid},{percentageInYOfCentroid},{depthAtCentroid}"))
+            
         # copy_img = np.copy(img)
 
         # lines = preproces_and_hough(img)

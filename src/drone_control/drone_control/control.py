@@ -258,7 +258,7 @@ class OffboardControl(Node):
                     north, east, down, yaw = self.positionCorrectionSetpoint
                     newNorth, newEast, newDown = rotate_ned(north, east, down, currentHeading)
                     
-                    message = EMPTY_MESSAGE
+                    message = "correctionSetpoint"
                     self.positionCorrectionSetpoint = None
                     correctingPosition = True
                 else:
