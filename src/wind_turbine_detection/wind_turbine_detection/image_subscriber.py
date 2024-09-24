@@ -9,6 +9,8 @@ from std_msgs.msg import String
 from enum import Enum
 from wind_turbine_detection.utils import *
 
+MODE_ALIGNMENT_LIDAR_THRESHOLD = 15
+MODE_INSPECTION_LIDAR_THRESHOLD = 2
 class ImageRecognitionState(Enum):
     OFF = 0
     ALIGNMENT = 1
@@ -64,122 +66,125 @@ class ImageSubscriber(Node):
         if angle and intersectionsAverageY and avg_dev_with_sign:
             self.angleToHaveWTCenteredOnImagePublisher.publish(String(data=f"{angle},{intersectionsAverageY},{avg_dev_with_sign},0,0"))
 
+    def prepare_image(self, data, threshold_value):
+        cv_image = self.br.imgmsg_to_cv2(data, desired_encoding='passthrough')
+        cv_image = np.nan_to_num(cv_image, nan=0.0, posinf=0.0, neginf=0.0)
+        
+        if cv_image is None or cv_image.size == 0 or cv_image.shape[0] == 0 or cv_image.shape[1] == 0:
+            return None, None, None, None, None, None
+        
+        positive_values_mask = cv_image > 0
+        positive_values = cv_image[positive_values_mask]
+        
+        if positive_values.size == 0:
+            return None, None, None, None, None, None
+        
+        min_distance = np.min(positive_values)
+        max_distance = min_distance + threshold_value
+        
+        mask = (cv_image >= min_distance) & (cv_image <= max_distance)
+        cv_image_filtered = np.where(mask, cv_image, 0)
+        
+        # Asegurarse de que max_distance - min_distance no sea cero
+        if max_distance - min_distance == 0:
+            return None, None, None, None, None, None
+        
+        cv_normalized = (cv_image_filtered - min_distance) / (max_distance - min_distance)
+        cv_normalized = np.clip(cv_normalized, 0, 1)
+        cv_8u = (cv_normalized * 255).astype(np.uint8)
+        img = cv2.applyColorMap(cv_8u, cv2.COLORMAP_JET)
+        
+        return cv_image_filtered, positive_values_mask, img, min_distance, cv_normalized, cv_image
+
+
+
     def depth_listener_callback(self, data):
         if self.imageRecognitionState == ImageRecognitionState.OFF:
             return
-        if (self.imageRecognitionState == ImageRecognitionState.ALIGNMENT):
-            self.alignment_listener_callback(data)
-        if (self.imageRecognitionState == ImageRecognitionState.INSPECTION):
-            self.inspection_listener_callback(data)
+        
+        # Determinar el umbral según el estado
+        if self.imageRecognitionState == ImageRecognitionState.ALIGNMENT:
+            threshold_value = MODE_ALIGNMENT_LIDAR_THRESHOLD
+        elif self.imageRecognitionState == ImageRecognitionState.INSPECTION:
+            threshold_value = MODE_INSPECTION_LIDAR_THRESHOLD
+        else:
+            return
+        
+        # Preparar la imagen
+        cv_image_filtered, positive_values_mask, img, min_distance, cv_normalized, cv_image_original = self.prepare_image(data, threshold_value)
+        
+        if cv_image_filtered is None:
+            return
+        
+        # Pasar los datos preparados a la función correspondiente
+        if self.imageRecognitionState == ImageRecognitionState.ALIGNMENT:
+            self.alignment_listener_callback(cv_image_filtered, positive_values_mask, img, min_distance, cv_normalized)
+        elif self.imageRecognitionState == ImageRecognitionState.INSPECTION:
+            self.inspection_listener_callback(cv_image_filtered, positive_values_mask, img, min_distance, cv_normalized)
 
 
-    def alignment_listener_callback(self, data):
+
+
+    def alignment_listener_callback(self, cv_image_filtered, positive_values_mask, img, min_distance, cv_normalized):
         try:
-            cv_image = self.br.imgmsg_to_cv2(data, desired_encoding='passthrough')
-            cv_image = np.nan_to_num(cv_image, nan=0.0, posinf=0.0, neginf=0.0)
-
-            if (cv_image is None or cv_image.size == 0 or cv_image.shape[0] == 0 or cv_image.shape[1] == 0):
-                return
-            positive_values = cv_image[cv_image > 0]
-            
-            if positive_values.size == 0:
-                return
-
-            min_distance = np.min(positive_values)
-            max_distance = np.max(cv_image)
-
-            cv_normalized = (cv_image - min_distance) / (max_distance - min_distance)
-            cv_normalized = np.clip(cv_normalized, 0, 1)
-
-            cv_8u = (cv_normalized * 255).astype(np.uint8)
-
-            img = cv2.applyColorMap(cv_8u, cv2.COLORMAP_JET)
             copy_img = np.copy(img)
-
             lines = preproces_and_hough(img)
-
             if lines is None:
                 return
-                        
+            
             for line in lines:
                 x1, y1, x2, y2 = line[0]
                 cv2.line(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
-
+            
             cv2.imshow('All detected lines', img)
             cv2.waitKey(1)
+            
             y_inverted_found, rotorX, rotorY, angle, percentageRotorY, _ = findYShape(copy_img, lines, "Y shape from depth image")
-
-            if rotorX and rotorY:
-                distanceToRotor = get_distance_at_point(rotorX, rotorY, cv_image)
-
-                # if distanceToRotor:
-                #     self.get_logger().info(f'Distancia en rotor ({rotorX}, {rotorY}): {distanceToRotor} metros')
-            
+            if rotorX is not None and rotorY is not None:
+                distanceToRotor = get_distance_at_point(rotorX, rotorY, cv_image_filtered)
+            else:
+                distanceToRotor = None
             if y_inverted_found:
-                avg_dev_with_sign = determine_direction_with_depth(y_inverted_found, cv_image)                
-            
-            if angle and percentageRotorY and avg_dev_with_sign and distanceToRotor:
-                self.angleToHaveWTCenteredOnImagePublisher.publish(String(data=f"{angle},{percentageRotorY},{avg_dev_with_sign},1, {distanceToRotor}"))
-
+                avg_dev_with_sign = determine_direction_with_depth(y_inverted_found, cv_image_filtered)
+            else:
+                avg_dev_with_sign = None
+            if angle is not None and percentageRotorY is not None and avg_dev_with_sign is not None and distanceToRotor is not None:
+                self.angleToHaveWTCenteredOnImagePublisher.publish(String(data=f"{angle},{percentageRotorY},{avg_dev_with_sign},1,{distanceToRotor}"))
         except Exception as e:
             self.get_logger().error(f'Error en alignment_listener_callback: {e}')
 
-    def inspection_listener_callback(self, data):
-        # try:
-        cv_image = self.br.imgmsg_to_cv2(data, desired_encoding='passthrough')
-        cv_image = np.nan_to_num(cv_image, nan=0.0, posinf=0.0, neginf=0.0)
 
-        if (cv_image is None or cv_image.size == 0 or cv_image.shape[0] == 0 or cv_image.shape[1] == 0):
-            return
-        # positive_values = cv_image[cv_image > 0]
-        
-        # if positive_values.size == 0:
-        #     return
 
-        # Solo consideramos los valores positivos (es decir, el objeto)
-        positive_values_mask = cv_image > 0
-        positive_values = cv_image[positive_values_mask]
-
-        if positive_values.size == 0:
-            return
-
-        # Calcular la distancia promedio y mediana
-        avg_distance = np.mean(positive_values)
-        median_distance = np.median(positive_values)
-
-        # Calculamos el centroide del objeto
-        y_coords, x_coords = np.where(positive_values_mask)
-        
-        # Centroide
-        centroid_x = np.mean(x_coords)
-        centroid_y = np.mean(y_coords)
-
-        min_distance = np.min(positive_values)
-        max_distance = np.max(cv_image)
-
-        cv_normalized = (cv_image - min_distance) / (max_distance - min_distance)
-        cv_normalized = np.clip(cv_normalized, 0, 1)
-
-        cv_8u = (cv_normalized * 255).astype(np.uint8)
-
-        img = cv2.applyColorMap(cv_8u, cv2.COLORMAP_JET)
-        
-        # Dibujar el centroide en la imagen
-        cv2.circle(img, (int(centroid_x), int(centroid_y)), 5, (0, 255, 0), -1)
-
-        # Mostrar la imagen con el centroide
-        cv2.imshow("Depth Image with Centroid", img)
-        cv2.waitKey(1)
-
-        depthAtCentroid = get_distance_at_point(int(centroid_x), int(centroid_y), cv_image)
-        percentageInXOfCentroid = centroid_x / cv_image.shape[1]
-        percentageInYOfCentroid = centroid_y / cv_image.shape[0]
-        if not self.centroid_distance_was_zero and depthAtCentroid == 0:
-            self.centroid_distance_was_zero = True
-        
-        if (self.centroid_distance_was_zero and depthAtCentroid > 0):
-            self.inspection_distances_publisher.publish(String(data=f"{percentageInXOfCentroid},{percentageInYOfCentroid},{depthAtCentroid}"))
+    def inspection_listener_callback(self, cv_image_filtered, positive_values_mask, img, min_distance, cv_normalized):
+        try:
+            # Calculamos el centroide del objeto
+            y_coords, x_coords = np.where(positive_values_mask)
             
+            if x_coords.size == 0 or y_coords.size == 0:
+                return
+            
+            centroid_x = np.mean(x_coords)
+            centroid_y = np.mean(y_coords)
+            
+            # Dibujar el centroide en la imagen
+            cv2.circle(img, (int(centroid_x), int(centroid_y)), 5, (0, 255, 0), -1)
+            
+            # Mostrar la imagen con el centroide
+            cv2.imshow("Depth Image with Centroid", img)
+            cv2.waitKey(1)
+            
+            depthAtCentroid = get_distance_at_point(int(centroid_x), int(centroid_y), cv_image_filtered)
+            percentageInXOfCentroid = centroid_x / cv_image_filtered.shape[1]
+            percentageInYOfCentroid = centroid_y / cv_image_filtered.shape[0]
+            
+            if not self.centroid_distance_was_zero and depthAtCentroid == 0:
+                self.centroid_distance_was_zero = True
+            
+            if self.centroid_distance_was_zero and depthAtCentroid > 0:
+                self.inspection_distances_publisher.publish(String(data=f"{percentageInXOfCentroid},{percentageInYOfCentroid},{depthAtCentroid}"))
+        except Exception as e:
+            self.get_logger().error(f'Error en inspection_listener_callback: {e}')
+                    
         # copy_img = np.copy(img)
 
         # lines = preproces_and_hough(img)

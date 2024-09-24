@@ -8,7 +8,7 @@ from drone_control.utils import *
 from drone_control.path_planner.path_planner import path_planner
 from drone_control.path_planner.stl_gen.create_stl import WindTurbine
 
-IN_WAYPOINT_THRESHOLD = 0.2
+IN_WAYPOINT_THRESHOLD = 0.25
 NEAR_WAYPOINT_THRESHOLD = 0.5
 EMPTY_MESSAGE = ""
 
@@ -197,7 +197,7 @@ class OffboardControl(Node):
         self.get_logger().info('Received: "%s"' % msg.data)
         try:
             newWaypoints = []
-            stepsPerDegree = 8
+            stepsPerDegree = 3
 
             degrees, distanceToWindTurbine = map(float, msg.data.split(','))
             previousHeading, previousX, previousY = 0, 0, 0
@@ -338,7 +338,7 @@ class OffboardControl(Node):
     def addIntermediateWaypoints(self, x, y, z, yaw):
         maxDistance = max(abs(x), abs(y), abs(z))
         newWaypoints = []
-        distancePerWaypoint = 0.3
+        distancePerWaypoint = 0.2
         numWaypoints = int(maxDistance / distancePerWaypoint)
         xStep = x / numWaypoints
         yStep = y / numWaypoints
