@@ -363,7 +363,7 @@ def findYShape(img, lines, img_name):
             rotorX = (maxX + minX) / 2
             percentageRotorY = rotorY / img.shape[0]
             cv2.circle(img, (int(rotorX), int(rotorY)), 5, (255, 0, 0), -1)
-            percentageInImage = (x1 + x2) / 2 / img.shape[1]
+            percentageInImage = rotorX / img.shape[1]
             fieldOfView = math.degrees(CAMERA_FOV)
 
 
