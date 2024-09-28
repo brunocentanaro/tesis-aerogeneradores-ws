@@ -488,11 +488,3 @@ def main(args=None):
 
 if __name__ == '__main__':
     main()
-
-
-# [mission_state_handler-3] [INFO] [1725919656.798099425] [mission_state_handler]: TakeoffState received: takeoff
-# [mission_state_handler-3] [INFO] [1725919656.812242838] [mission_state_handler]: Publishing waypoint
-# [mission_state_handler-3] [INFO] [1725919656.813268255] [mission_state_handler]: Publishing: "-34.627221,-54.957851"
-# [control-7] [INFO] [1725919656.820182722] [drone_control.control]: Received: "-34.627221,-54.957851"
-# [control-7] [INFO] [1725919656.820669800] [drone_control.control]: passing -34.62897298903423, -54.95847999162912, -34.627221, -54.957851, 53
-# [control-7] [INFO] [1725919656.821393652] [drone_control.control]: Distance: 149.73267257094273, Yaw: 0.2872517883070938
