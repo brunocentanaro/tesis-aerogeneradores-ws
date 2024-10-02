@@ -344,7 +344,7 @@ class OffboardControl(Node):
     def addIntermediateWaypoints(self, x, y, z, yaw):
         maxDistance = max(abs(x), abs(y), abs(z))
         newWaypoints = []
-        distancePerWaypoint = 0.2
+        distancePerWaypoint = 0.02
         numWaypoints = int(maxDistance / distancePerWaypoint)
         xStep = x / numWaypoints
         yStep = y / numWaypoints
@@ -405,8 +405,8 @@ class OffboardControl(Node):
     def publish_offboard_control_mode(self):
         msg = OffboardControlMode()
         msg.position = True
-        msg.velocity = True
-        msg.acceleration = True
+        msg.velocity = False
+        msg.acceleration = False
         msg.attitude = False
         msg.body_rate = False
         msg.timestamp = self.get_clock().now().nanoseconds // 1000
@@ -440,7 +440,6 @@ class OffboardControl(Node):
                 self.get_logger().info(
                     'Ticks near this waypoint: %s' %
                     self.nearTicker)
-
         msg.velocity = self.currentSetpointEndSpeed
 
         msg.yaw = self.currentYaw
