@@ -8,8 +8,8 @@ from drone_control.utils import *
 from drone_control.path_planner.path_planner import path_planner
 from drone_control.path_planner.stl_gen.create_stl import WindTurbine
 
-IN_WAYPOINT_THRESHOLD = 0.25
-NEAR_WAYPOINT_THRESHOLD = 0.5
+IN_WAYPOINT_THRESHOLD = 0.4
+NEAR_WAYPOINT_THRESHOLD = 0.8
 EMPTY_MESSAGE = ""
 
 
@@ -429,11 +429,8 @@ class OffboardControl(Node):
             distanceToCoverY), abs(distanceToCoverZ))
         yawDistance = abs(self.currentYaw -
                           self.currentHeading) % (2 * math.pi)
-        if max_distance < IN_WAYPOINT_THRESHOLD and self.processing_waypoint:
-            if (yawDistance < 0.1):
-                self.onWaypointReached()
-            self.get_logger().info('yawDistance: %s, currentYaw: %s, currentHeading: %s' %
-                                   (yawDistance, self.currentYaw, self.currentHeading))
+        if max_distance < IN_WAYPOINT_THRESHOLD and self.processing_waypoint and yawDistance < 0.1:
+            self.onWaypointReached()
         elif max_distance < NEAR_WAYPOINT_THRESHOLD and self.processing_waypoint:
             self.nearTicker += 1
             if self.nearTicker > 50:
