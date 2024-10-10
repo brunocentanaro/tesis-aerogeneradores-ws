@@ -22,11 +22,11 @@ class ImageRecognitionState(Enum):
 class ImageSubscriber(Node):
     def __init__(self):
         super().__init__('image_subscriber')
-        # self.subscription = self.create_subscription(
-        #     Image,
-        #     'camera',
-        #     self.listener_callback,
-        #     10)
+        self.subscription = self.create_subscription(
+            Image,
+            'camera',
+            self.listener_callback,
+            10)
         self.depth_subscription = self.create_subscription(
             Image,
             'depth_camera',
@@ -41,6 +41,7 @@ class ImageSubscriber(Node):
         self.inspection_distances_publisher = self.create_publisher(
             String, 'inspection_distances', 10)
         self.centroid_distance_was_zero = False
+        self.imageBr = CvBridge()
 
     def change_mode_callback(self, msg):
         try:
@@ -51,28 +52,29 @@ class ImageSubscriber(Node):
             self.get_logger().error(f'Error en change_mode_callback: {e}')
 
     def listener_callback(self, data):
-        current_frame = self.br.imgmsg_to_cv2(data, desired_encoding="bgr8")
+        current_frame = self.imageBr.imgmsg_to_cv2(
+            data, desired_encoding="bgr8")
         image = current_frame
         img = image
         copy_img = np.copy(img)
 
-        lines = preproces_and_hough(img)
+        # lines = preproces_and_hough(img)
 
-        if lines is None:
-            return
+        # if lines is None:
+        #     return
 
-        for line in lines:
-            x1, y1, x2, y2 = line[0]
-            cv2.line(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
+        # for line in lines:
+        #     x1, y1, x2, y2 = line[0]
+        #     cv2.line(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
 
-        cv2.imshow('All detected lines', img)
+        cv2.imshow('All detectednes', img)
         cv2.waitKey(1)
-        y_inverted_found, rotorX, rotorY, angle, intersectionsAverageY, vertical_lines = findYShape(
-            copy_img, lines, "Y shape from rgb image")
-        avg_dev_with_sign = determine_direction(rotorY, vertical_lines)
-        if angle and intersectionsAverageY and avg_dev_with_sign:
-            self.angleToHaveWTCenteredOnImagePublisher.publish(
-                String(data=f"{angle},{intersectionsAverageY},{avg_dev_with_sign},0,0"))
+        # y_inverted_found, rotorX, rotorY, angle, intersectionsAverageY, vertical_lines = findYShape(
+        #     copy_img, lines, "Y shape from rgb image")
+        # avg_dev_with_sign = determine_direction(rotorY, vertical_lines)
+        # if angle and intersectionsAverageY and avg_dev_with_sign:
+        #     self.angleToHaveWTCenteredOnImagePublisher.publish(
+        #         String(data=f"{angle},{intersectionsAverageY},{avg_dev_with_sign},0,0"))
 
     def prepare_image(self, data, threshold_value):
         cv_image = self.br.imgmsg_to_cv2(data, desired_encoding='passthrough')
@@ -174,31 +176,53 @@ class ImageSubscriber(Node):
     def inspection_listener_callback(
             self, cv_image_filtered, positive_values_mask, img, min_distance, cv_normalized):
         try:
-            y_coords, x_coords = np.where(positive_values_mask)
+            indices = np.argwhere(positive_values_mask)
 
-            if x_coords.size == 0 or y_coords.size == 0:
+            if indices.size == 0:
                 return
 
-            centroid_x = np.mean(x_coords)
-            centroid_y = np.mean(y_coords)
+            image_center = np.array([
+                cv_image_filtered.shape[0] / 2,
+                cv_image_filtered.shape[1] / 2
+            ])
+
+            distances_to_center = np.linalg.norm(
+                indices - image_center, axis=1)
+            distances_to_center[distances_to_center == 0] = 1e-6
+
+            weights = 1 / distances_to_center
+            normalized_weights = weights / np.sum(weights)
+
+            weighted_sum = np.sum(indices *
+                                  normalized_weights[:, np.newaxis], axis=0)
+            centroid = weighted_sum
+            centroid_y, centroid_x = centroid
 
             cv2.circle(
-                img, (int(centroid_x), int(centroid_y)), 5, (0, 255, 0), -1)
+                img, (int(
+                    round(centroid_x)), int(
+                    round(centroid_y))), 5, (0, 255, 0), -1)
 
             cv2.imshow("Depth Image with Centroid", img)
             cv2.waitKey(1)
 
-            depthAtCentroid = get_distance_at_point(
-                int(centroid_x), int(centroid_y), cv_image_filtered)
-            percentageInXOfCentroid = centroid_x / cv_image_filtered.shape[1]
-            percentageInYOfCentroid = centroid_y / cv_image_filtered.shape[0]
+            depth_at_centroid = get_distance_at_point(
+                int(round(centroid_x)), int(
+                    round(centroid_y)), cv_image_filtered
+            )
 
-            if not self.centroid_distance_was_zero and depthAtCentroid == 0:
+            percentage_in_x_of_centroid = centroid_x / \
+                cv_image_filtered.shape[1]
+            percentage_in_y_of_centroid = centroid_y / \
+                cv_image_filtered.shape[0]
+
+            if not self.centroid_distance_was_zero and depth_at_centroid == 0:
                 self.centroid_distance_was_zero = True
 
-            if self.centroid_distance_was_zero and depthAtCentroid > 0:
+            if self.centroid_distance_was_zero and depth_at_centroid > 0:
                 self.inspection_distances_publisher.publish(String(
-                    data=f"{percentageInXOfCentroid},{percentageInYOfCentroid},{depthAtCentroid}"))
+                    data=f"{percentage_in_x_of_centroid},{percentage_in_y_of_centroid},{depth_at_centroid}"
+                ))
         except Exception as e:
             self.get_logger().error(
                 f'Error en inspection_listener_callback: {e}')
