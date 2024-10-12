@@ -11,6 +11,8 @@ from drone_control.path_planner.stl_gen.create_stl import WindTurbine
 IN_WAYPOINT_THRESHOLD = 0.4
 NEAR_WAYPOINT_THRESHOLD = 0.8
 EMPTY_MESSAGE = ""
+BLADE_COMPLETED_MESSAGE = "bladeCompleted"
+BLADE_START_MESSAGE = "bladeStart"
 
 
 class OffboardControl(Node):
@@ -325,11 +327,15 @@ class OffboardControl(Node):
                 xToUse, yToUse, zToUse = x - \
                     previous[0], y - previous[1], z - previous[2]
                 if previous_group is not None and group_id == previous_group:
-                    newWaypointsGroup.extend(
-                        self.addIntermediateWaypoints(xToUse, yToUse, zToUse, 0.0))
+                    newIntermediateWaypoints = self.addIntermediateWaypoints(
+                        xToUse, yToUse, zToUse, 0.0)
+                    lastIntermediateWaypoints = newIntermediateWaypoints[-1]
+                    newIntermediateWaypoints[-1] = (
+                        lastIntermediateWaypoints[0], lastIntermediateWaypoints[1], lastIntermediateWaypoints[2], lastIntermediateWaypoints[3], BLADE_COMPLETED_MESSAGE)
+                    newWaypointsGroup.extend(newIntermediateWaypoints)
                 else:
                     newWaypointsGroup.append(
-                        (xToUse, yToUse, zToUse, 0.0, EMPTY_MESSAGE))
+                        (xToUse, yToUse, zToUse, 0.0, BLADE_START_MESSAGE))
                 previous_group = group_id
                 previous = (x, y, z)
             _, (x, y, z) = path[-1]
@@ -447,6 +453,8 @@ class OffboardControl(Node):
         self.processing_waypoint = False
         self.nearTicker = 0
         if (self.onWaypointReachedMessage and self.onWaypointReachedMessage != EMPTY_MESSAGE):
+            if (self.onWaypointReachedMessage == BLADE_START_MESSAGE):
+                self.blockNewWaypoints = True
             self.waypointReachedPublisher.publish(
                 String(data=self.onWaypointReachedMessage))
             self.onWaypointReachedMessage = EMPTY_MESSAGE

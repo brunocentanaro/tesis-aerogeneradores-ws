@@ -9,8 +9,8 @@ from std_msgs.msg import String
 from enum import Enum
 from wind_turbine_detection.utils import *
 
-MODE_ALIGNMENT_LIDAR_THRESHOLD = 15
-MODE_INSPECTION_LIDAR_THRESHOLD = 2
+MODE_ALIGNMENT_LIDAR_THRESHOLD = 30
+MODE_INSPECTION_LIDAR_THRESHOLD = 4
 
 
 class ImageRecognitionState(Enum):

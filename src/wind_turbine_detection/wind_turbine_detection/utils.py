@@ -6,35 +6,28 @@ from wind_turbine_detection.constants import CAMERA_FOV
 
 
 def preproces_and_hough(image):
-    # Convert to grayscale
+    # Convertir a escala de grises
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-    # Apply Gaussian Blur
-    blurred = cv2.GaussianBlur(
-        gray,
-        (9, 9),  # size of the Gaussian kernel
-        2  # standard deviation in the X direction
-    )
+    # Mejorar el contraste
+    gray = cv2.equalizeHist(gray)
 
-    # Apply Canny edge detector
-    edges = cv2.Canny(
-        blurred,
-        threshold1=10,  # lower threshold for the hysteresis procedure
-        threshold2=150,  # upper threshold for the hysteresis procedure
-        # size of the Sobel kernel used for finding image gradients. It can be
-        # 1, 3, 5, or 7.
-        apertureSize=3
-    )
+    # Aplicar suavizado
+    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
 
-    # Apply probabilistic Hough Line Transform
+    # Aplicar detector de bordes Canny con umbrales ajustados
+    edges = cv2.Canny(blurred, threshold1=50, threshold2=100, apertureSize=3)
+
+    # Aplicar la Transformada de Hough Probabilística con parámetros ajustados
     lines = cv2.HoughLinesP(
         edges,
-        rho=1,  # Distance resolution in pixels
-        theta=np.pi / 180,  # Angle resolution in radians
-        threshold=50,  # Min number of votes/intersections for valid line
-        minLineLength=40,  # Min allowed length of line
-        maxLineGap=25  # Max allowed gap between points on the same line to link them
+        rho=1,
+        theta=np.pi / 180,
+        threshold=30,
+        minLineLength=15,
+        maxLineGap=20
     )
+
     return lines
 
 
