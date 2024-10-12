@@ -11,31 +11,40 @@ DISTANCE_TO_WIND_TURBINE = 55
 APPROACH_STEP = 5
 MIN_DISTANCE = 10
 
+
 class AlignmentSubstate(Enum):
     ALIGN_VERTICAL = 1
     ALIGN_HORIZONTAL = 2
     BECOME_ORTHOGONAL = 3
     INTERMEDIATE_APPROACH = 4
 
+
 class OrthogonalAlignmentState(InspectionState):
     def __init__(self, state_machine):
-        super().__init__('orthogonal_alignment_state', WindTurbineInspectionStage.ORTHOGONAL_ALIGNMENT, state_machine)
-        self.moveCenteredPublisher = self.create_publisher(String, '/drone_control/rotate_keeping_center', 10)
-        self.rotateWithoutMovingPublisher = self.create_publisher(String, '/drone_control/rotate_without_moving', 10)
-        self.changeHeightPublisher = self.create_publisher(String, '/drone_control/change_height', 10)
-        self.distanceWaypointPublisher = self.create_publisher(String, '/drone_control/distance_waypoint', 10)
+        super().__init__(
+            'orthogonal_alignment_state',
+            WindTurbineInspectionStage.ORTHOGONAL_ALIGNMENT,
+            state_machine)
+        self.moveCenteredPublisher = self.create_publisher(
+            String, '/drone_control/rotate_keeping_center', 10)
+        self.rotateWithoutMovingPublisher = self.create_publisher(
+            String, '/drone_control/rotate_without_moving', 10)
+        self.changeHeightPublisher = self.create_publisher(
+            String, '/drone_control/change_height', 10)
+        self.distanceWaypointPublisher = self.create_publisher(
+            String, '/drone_control/distance_waypoint', 10)
         self.angleToHaveWTCenteredSubscriber = self.create_subscription(
             String, 'angle_to_have_wt_centered_on_image', self.angle_to_have_wt_centered_callback, 10)
-        
+
         self.inAnOperation = False
         self.current_substate = AlignmentSubstate.ALIGN_VERTICAL
-        self.current_distance = DISTANCE_TO_WIND_TURBINE
         self.lastPercentagesInY = []
         self.lastAngles = []
         self.lastDevs = []
         self.validAlignmentCounter = 0
         self.verticalSeenDistance = VERTICAL_SEEN_DISTANCE
-        self.changeImageSubscriberModePublisher = self.create_publisher(String, 'change_mode', 10)
+        self.changeImageSubscriberModePublisher = self.create_publisher(
+            String, 'change_mode', 10)
         self.changeImageSubscriberModePublisher.publish(String(data="1"))
 
     def angle_to_have_wt_centered_callback(self, msg):
@@ -43,11 +52,12 @@ class OrthogonalAlignmentState(InspectionState):
             return
 
         try:
-            angle,intersectionYPercentage, avgDevWithSign, type, distanceToRotor = map(float, msg.data.split(","))
-            if type == 0: # Desviacion obtenida de lineas
+            angle, intersectionYPercentage, avgDevWithSign, type, distanceToRotor = map(
+                float, msg.data.split(","))
+            if type == 0:  # Desviacion obtenida de lineas
                 factor = 0.3333
                 angle_threshold = 4
-            else: # Desviacion obtenida con lidar
+            else:  # Desviacion obtenida con lidar
                 factor = 1
                 angle_threshold = 2
 
@@ -73,7 +83,8 @@ class OrthogonalAlignmentState(InspectionState):
                         changeHeightMsg.data = f"{differenceInY * VERTICAL_SEEN_DISTANCE}"
                         self.changeHeightPublisher.publish(changeHeightMsg)
                         self.inAnOperation = True
-                        self.get_logger().info(f"Adjusting height by {differenceInY * VERTICAL_SEEN_DISTANCE}")
+                        self.get_logger().info(
+                            f"Adjusting height by {differenceInY * VERTICAL_SEEN_DISTANCE}")
                     else:
                         # Move to next substate immediately
                         self.current_substate = AlignmentSubstate.ALIGN_HORIZONTAL
@@ -87,7 +98,8 @@ class OrthogonalAlignmentState(InspectionState):
                         # Rotate
                         rotateWithoutMovingMsg = String()
                         rotateWithoutMovingMsg.data = f"{median_angle}"
-                        self.rotateWithoutMovingPublisher.publish(rotateWithoutMovingMsg)
+                        self.rotateWithoutMovingPublisher.publish(
+                            rotateWithoutMovingMsg)
                         self.inAnOperation = True
                         self.get_logger().info(f"Rotating by {median_angle}")
                     else:
@@ -96,16 +108,18 @@ class OrthogonalAlignmentState(InspectionState):
                         self.lastDevs = []
                         self.get_logger().info("Horizontal alignment complete. Moving to become orthogonal.")
 
-            elif self.current_substate == AlignmentSubstate.BECOME_ORTHOGONAL :
+            elif self.current_substate == AlignmentSubstate.BECOME_ORTHOGONAL:
                 if len(self.lastDevs) >= 10:
                     median_dev = np.median(self.lastDevs)
                     degrees = median_dev * factor
-                    if abs(degrees) > angle_threshold and distanceToRotor > MIN_DISTANCE * 2:
+                    if abs(
+                            degrees) > angle_threshold and distanceToRotor > MIN_DISTANCE * 2:
                         moveCenteredMsg = String()
                         moveCenteredMsg.data = f"{degrees},{distanceToRotor}"
                         self.moveCenteredPublisher.publish(moveCenteredMsg)
                         self.inAnOperation = True
-                        self.get_logger().info(f"Adjusting to become orthogonal by {degrees} degrees in {distanceToRotor} m")
+                        self.get_logger().info(
+                            f"Adjusting to become orthogonal by {degrees} degrees in {distanceToRotor} m")
                     else:
                         # Move to next substate immediately
                         self.current_substate = AlignmentSubstate.INTERMEDIATE_APPROACH
@@ -114,16 +128,20 @@ class OrthogonalAlignmentState(InspectionState):
             elif self.current_substate == AlignmentSubstate.INTERMEDIATE_APPROACH:
                 self.validAlignmentCounter += 1
                 if self.validAlignmentCounter >= 20:
-                    remaining_distance = self.current_distance - MIN_DISTANCE
-                    if remaining_distance > 0:
-                        approach_distance = min(APPROACH_STEP, remaining_distance)
-                        self.current_distance -= approach_distance
+                    remaining_distance = distanceToRotor - MIN_DISTANCE
+                    self.get_logger().info(f"remain: {remaining_distance}")
+                    if remaining_distance > 1:
+                        approach_distance = min(
+                            APPROACH_STEP, remaining_distance)
                         distanceWaypointMsg = String()
                         distanceWaypointMsg.data = f"{approach_distance},0,0"
-                        self.distanceWaypointPublisher.publish(distanceWaypointMsg)
+                        self.distanceWaypointPublisher.publish(
+                            distanceWaypointMsg)
                         self.inAnOperation = True
-                        self.get_logger().info(f"Approaching ${approach_distance} to distance {self.current_distance}")
-                        self.verticalSeenDistance = max(10, self.verticalSeenDistance - 2)
+                        self.get_logger().info(
+                            f"Approaching ${approach_distance} to distance {distanceToRotor}")
+                        self.verticalSeenDistance = max(
+                            10, self.verticalSeenDistance - 2)
                         self.current_substate = AlignmentSubstate.ALIGN_VERTICAL
                         self.lastPercentagesInY = []
                         self.lastAngles = []
@@ -134,7 +152,8 @@ class OrthogonalAlignmentState(InspectionState):
                         self.get_logger().info("Reached minimum distance. Inspection complete.")
                         self.advance_to_next_state()
                 else:
-                    self.get_logger().info(f"Waiting for stability before next approach step ({self.validAlignmentCounter}/20)")
+                    self.get_logger().info(
+                        f"Waiting for stability before next approach step ({self.validAlignmentCounter}/20)")
 
         except ValueError:
             self.get_logger().error(f"Received invalid data: {msg.data}")
