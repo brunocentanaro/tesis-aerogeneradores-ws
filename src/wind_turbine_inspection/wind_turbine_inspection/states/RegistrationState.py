@@ -97,6 +97,5 @@ class RegistrationState(InspectionState):
             self.get_logger().info("Waypoint reached: correctionSetpoint")
             self.inAnOperation = False
             return
-        self.state_machine.completedInspectionRounds += 1
         self.changeImageSubscriberModePublisher.publish(String(data="0"))
         self.advance_to_next_state()

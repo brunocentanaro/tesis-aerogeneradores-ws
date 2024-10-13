@@ -11,7 +11,6 @@ class WindTurbineInspectionStage(Enum):
     APPROACH = "approach"
     ORTHOGONAL_ALIGNMENT = "orthogonal_alignment"
     INSPECTION = "inspection"
-    ROTATION = "rotation"
     RETURN_HOME = "return_home"
 
 class InspectionState(ABC, Node):
