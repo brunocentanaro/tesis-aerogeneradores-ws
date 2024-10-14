@@ -16,7 +16,8 @@ MODE_INSPECTION_LIDAR_THRESHOLD = 4
 class ImageRecognitionState(Enum):
     OFF = 0
     ALIGNMENT = 1
-    INSPECTION = 2
+    INSPECTION_FROM_FRONT = 2
+    INSPECTION_FROM_BACK = 3
 
 
 class ImageSubscriber(Node):
@@ -120,12 +121,11 @@ class ImageSubscriber(Node):
         if self.imageRecognitionState == ImageRecognitionState.ALIGNMENT:
             threshold_value = MODE_ALIGNMENT_LIDAR_THRESHOLD
             useNearThreshold = True
-        elif self.imageRecognitionState == ImageRecognitionState.INSPECTION:
+        elif self.imageRecognitionState == ImageRecognitionState.INSPECTION_FROM_FRONT or self.imageRecognitionState == ImageRecognitionState.INSPECTION_FROM_BACK:
             threshold_value = MODE_INSPECTION_LIDAR_THRESHOLD
-            useNearThreshold = False
+            useNearThreshold = self.imageRecognitionState == ImageRecognitionState.INSPECTION_FROM_FRONT
         else:
             return
-
         cv_image_filtered, positive_values_mask, img, min_distance, cv_normalized, cv_image_original = self.prepare_image(
             data, threshold_value, useNearThreshold)
 
@@ -139,7 +139,7 @@ class ImageSubscriber(Node):
                 img,
                 min_distance,
                 cv_normalized)
-        elif self.imageRecognitionState == ImageRecognitionState.INSPECTION:
+        elif self.imageRecognitionState == ImageRecognitionState.INSPECTION_FROM_FRONT or self.imageRecognitionState == ImageRecognitionState.INSPECTION_FROM_BACK:
             self.inspection_listener_callback(
                 cv_image_filtered,
                 positive_values_mask,

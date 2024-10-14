@@ -8,9 +8,11 @@ X_THRESHOLD = 0.1
 desired_movement_value_x = 4
 desired_movement_value_y = 2.5
 desired_movement_value_z = 0.1
-MIN_DISTANCE = 8
-MAX_DISTANCE = 11
+MIN_DISTANCE_FRONT = 8
+MAX_DISTANCE_FRONT = 11
 POINTS_NEEDED = 50
+MIN_DISTANCE_BACK = 18
+MAX_DISTANCE_BACK = 22
 
 
 class RegistrationState(InspectionState):
@@ -27,7 +29,11 @@ class RegistrationState(InspectionState):
             String(data=f"{rotorDiameter},{bladeLength}"))
         self.changeImageSubscriberModePublisher = self.create_publisher(
             String, 'change_mode', 10)
-        self.changeImageSubscriberModePublisher.publish(String(data="2"))
+
+        imageSubscriberMode = "2" if self.shared_state['is_front_inspection'] else "3"
+        self.changeImageSubscriberModePublisher.publish(
+            String(data=imageSubscriberMode))
+
         self.inspectionDistancesSubscriber = self.create_subscription(
             String, 'inspection_distances', self.inspectionDistancesCallback, 10)
         self.correctDronePositionPublisher = self.create_publisher(
@@ -39,6 +45,10 @@ class RegistrationState(InspectionState):
         self.lastNeededPercentY = []
         self.lastNeededDistance = []
         self.bladeCompletedCounter = 0
+        self.MIN_DISTANCE = MIN_DISTANCE_FRONT if self.shared_state[
+            'is_front_inspection'] else MIN_DISTANCE_BACK
+        self.MAX_DISTANCE = MAX_DISTANCE_FRONT if self.shared_state[
+            'is_front_inspection'] else MAX_DISTANCE_BACK
 
     def inspectionDistancesCallback(self, msg):
         try:
@@ -82,8 +92,9 @@ class RegistrationState(InspectionState):
                 elif medianY > 1 - Y_THRESHOLD:
                     correction_vector[2] = desired_movement_value_y
 
-                if medianDistance < MIN_DISTANCE or medianDistance > MAX_DISTANCE:
-                    perfectDistance = (MIN_DISTANCE + MAX_DISTANCE) / 2
+                if medianDistance < self.MIN_DISTANCE or medianDistance > self.MAX_DISTANCE:
+                    perfectDistance = (
+                        self.MIN_DISTANCE + self.MAX_DISTANCE) / 2
                     correction_vector[0] = medianDistance - perfectDistance
 
                 if correction_vector != [0, 0, 0, 0]:
@@ -123,6 +134,5 @@ class RegistrationState(InspectionState):
             return
         self.reEnableProcessingWaypointsPublisher.publish(
             String(data=""))
-        self.state_machine.completedInspectionRounds += 1
         self.changeImageSubscriberModePublisher.publish(String(data="0"))
         self.advance_to_next_state()
