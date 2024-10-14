@@ -1,4 +1,5 @@
 from wind_turbine_inspection.states.base import InspectionState, WindTurbineInspectionStage
+from std_srvs.srv import Trigger
 
 class IdleState(InspectionState):
     def __init__(self, state_machine):
@@ -9,11 +10,13 @@ class IdleState(InspectionState):
 
         self.get_logger().info(f"Mission parameter: {mission_param}")
         self.get_logger().info("IdleState created")
-        self.timer = self.create_timer(20.0, self.startAfter20Seconds)
-        self.get_logger().info(f"Timer created {self.timer.time_until_next_call()}")
+        self.srv = self.create_service(Trigger, 'comenzar_inspeccion', self.comenzar_inspeccion_callback)
 
-    def startAfter20Seconds(self):
+    def comenzar_inspeccion_callback(self, request, response):
         self.advance_to_next_state()
+        response.success = True
+        response.message = "Inspección iniciada"
+        return response
 
     def waypoint_reached_callback(self, msg):
         self.get_logger().info(f"IdleState received: {msg.data}")
