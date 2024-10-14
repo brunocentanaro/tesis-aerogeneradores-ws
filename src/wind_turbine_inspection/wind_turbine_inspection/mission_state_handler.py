@@ -11,16 +11,8 @@ class WindTurbineInspectionStateMachine(Node):
     def __init__(self):
         super().__init__('inspection_state_machine')
         self.current_state = IdleState(self)
-        self.completedInspectionRounds = 0
-        self.inspectionDistance = 10
+        self.completedFirstRound = False
         self.spin_until_state_complete()
-    
-    def recalculateInspectionRoundsAndDistance(self):
-        self.completedInspectionRounds = (self.completedInspectionRounds + 1) % 4
-        if self.completedInspectionRounds < 2:
-            self.distance = 10
-        else:
-            self.distance = 20
 
     def spin_until_state_complete(self):
         future = self.current_state.get_future()
@@ -30,13 +22,9 @@ class WindTurbineInspectionStateMachine(Node):
     def change_state(self):
         current_state = type(self.current_state)
         self.current_state.destroy_node()
-        if self.completedInspectionRounds < 2:
-            self.distance = 10
-        else:
-            self.distance = 20
 
         if current_state is IdleState:
-            if self.completedInspectionRounds % 2 == 0:
+            if not self.completedFirstRound:
                 self.current_state = TakeoffState(self)
             else:
                 self.current_state = RegistrationState(self)
@@ -47,12 +35,14 @@ class WindTurbineInspectionStateMachine(Node):
         elif current_state is OrthogonalAlignmentState:
             self.current_state = RegistrationState(self)
         elif current_state is RegistrationState:
-            self.recalculateInspectionRoundsAndDistance()
-            if self.completedInspectionRounds % 2 == 0:
+            if self.completedFirstRound:
                 self.current_state = ReturnHomeState(self)
             else:
+                self.completedFirstRound = True
                 self.current_state = IdleState(self)
         elif current_state is ReturnHomeState:
+            # Terminar el programa (?
+            self.completedFirstRound = False
             self.current_state = IdleState(self)
 
         self.spin_until_state_complete()
