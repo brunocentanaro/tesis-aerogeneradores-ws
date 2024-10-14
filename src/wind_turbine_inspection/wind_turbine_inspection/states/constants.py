@@ -6,6 +6,8 @@ windTurbineTypeAndLocation = [
             "longitude": -54.957466
         },
         "rotorDiameter": 5,
-        "bladeLength": 39
+        "bladeLength": 39,
+        "frontInspection": True 
     },
 ]
+
