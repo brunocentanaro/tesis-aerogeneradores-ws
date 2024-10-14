@@ -7,9 +7,15 @@ from wind_turbine_inspection.states.OrthogonalAlignmentState import OrthogonalAl
 from wind_turbine_inspection.states.ReturnHomeState import ReturnHomeState
 from wind_turbine_inspection.states.TakeoffState import TakeoffState
 
+
 class WindTurbineInspectionStateMachine(Node):
     def __init__(self):
         super().__init__('inspection_state_machine')
+        self.declare_parameter('register_after_takeoff', 0)
+        self.registerAfterTakeoff = self.get_parameter(
+            'register_after_takeoff').get_parameter_value().integer_value
+
+        self.registerAfterTakeoff = RegistrationState if self.registerAfterTakeoff == 1 else ApproachState
         self.current_state = IdleState(self)
         self.completedFirstRound = False
         self.spin_until_state_complete()
@@ -29,7 +35,7 @@ class WindTurbineInspectionStateMachine(Node):
             else:
                 self.current_state = RegistrationState(self)
         elif current_state is TakeoffState:
-            self.current_state = ApproachState(self)
+            self.current_state = self.registerAfterTakeoff(self)
         elif current_state is ApproachState:
             self.current_state = OrthogonalAlignmentState(self)
         elif current_state is OrthogonalAlignmentState:
@@ -44,6 +50,7 @@ class WindTurbineInspectionStateMachine(Node):
         if current_state is not ReturnHomeState:
             self.spin_until_state_complete()
 
+
 def main(args=None):
     rclpy.init(args=args)
 
@@ -53,6 +60,7 @@ def main(args=None):
 
     state_machine.destroy_node()
     rclpy.shutdown()
+
 
 if __name__ == '__main__':
     main()

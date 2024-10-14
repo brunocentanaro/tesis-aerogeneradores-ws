@@ -51,15 +51,19 @@ def generate_worlds(params_list, base_world_file):
 if __name__ == "__main__":
     params_list = [
         {
-            'wind': "0 0 0",
+            'wind': "10 0 0",
             'droneConfigurations': [
                 {
                     'dronePosition': "-68.86006 -7.48692 54.22478 0 0 -1.5557",
-                    'nameToUse': "default"
+                    'nameToUse': "default1"
                 },
                 {
                     'dronePosition': "45 -7.48692 48.72478 0 0 -1.5557",
-                    'nameToUse': "default2"
+                    'nameToUse': "default3"
+                },
+                {
+                    'dronePosition': "12.074535451124042 135.10949433237792 75 -0.10691173836875183 -0.02434792705363107 1.2608555326931348",
+                    'nameToUse': "default"
                 }
             ]
         },
