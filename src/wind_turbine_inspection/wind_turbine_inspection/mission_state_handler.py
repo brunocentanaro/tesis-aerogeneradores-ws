@@ -40,13 +40,9 @@ class WindTurbineInspectionStateMachine(Node):
             else:
                 self.completedFirstRound = True
                 self.current_state = IdleState(self)
-        elif current_state is ReturnHomeState:
-            # Terminar el programa (?
-            self.completedFirstRound = False
-            self.current_state = IdleState(self)
 
-        self.spin_until_state_complete()
-
+        if current_state is not ReturnHomeState:
+            self.spin_until_state_complete()
 
 def main(args=None):
     rclpy.init(args=args)
