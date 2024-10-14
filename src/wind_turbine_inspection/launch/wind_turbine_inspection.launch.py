@@ -6,6 +6,7 @@ from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
 import os
 
+
 def generate_launch_description():
     package_dir = get_package_share_directory('wind_turbine_inspection')
     detection_launch_path = os.path.join(
@@ -18,9 +19,14 @@ def generate_launch_description():
     )
     return LaunchDescription([
         DeclareLaunchArgument(
-            'mission_arg', 
+            'mission_arg',
             default_value='0',  # Valor por defecto
             description='Argument for mission state handler'
+        ),
+        DeclareLaunchArgument(
+            'front_inspection',
+            default_value='1',
+            description='Argument for front inspection'
         ),
         Node(
             package='wind_turbine_inspection',
@@ -50,7 +56,10 @@ def generate_launch_description():
             name='mission_state_handler',
             # prefix='gnome-terminal --',
             # output='screen',
-            parameters=[{'mission_param': LaunchConfiguration('mission_arg')}]
+            parameters=[
+                {'mission_param': LaunchConfiguration('mission_arg')},
+                {'front_inspection': LaunchConfiguration('front_inspection')}
+            ]
         ),
         Node(
             package='rviz2',

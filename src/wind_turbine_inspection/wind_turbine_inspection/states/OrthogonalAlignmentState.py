@@ -7,9 +7,9 @@ SHOULD_ROTATE_WITHOUT_MOVING_THRESHOLD = 10
 MIN_ANGLE_TO_ROTATE = 4
 CENTERED_ROTOR_PERCENTAGE_THRESHOLD = 0.1
 VERTICAL_SEEN_DISTANCE = 8
-DISTANCE_TO_WIND_TURBINE = 55
 APPROACH_STEP = 5
-MIN_DISTANCE = 10
+MIN_DISTANCE_FRONT_INSP = 10
+MIN_DISTANCE_BACK_INSP = 15
 ORTHOGONAL_ERROR_THRESHOLD = 0.5
 
 
@@ -47,6 +47,8 @@ class OrthogonalAlignmentState(InspectionState):
         self.changeImageSubscriberModePublisher = self.create_publisher(
             String, 'change_mode', 10)
         self.changeImageSubscriberModePublisher.publish(String(data="1"))
+        isFrontInspection = self.shared_state['is_front_inspection']
+        self.distanceToApproach = MIN_DISTANCE_FRONT_INSP if isFrontInspection else MIN_DISTANCE_BACK_INSP
 
     def angle_to_have_wt_centered_callback(self, msg):
         if self.inAnOperation:
@@ -107,8 +109,7 @@ class OrthogonalAlignmentState(InspectionState):
                 if len(self.lastDevs) >= 10:
                     median_dev = np.median(self.lastDevs)
                     errorBetweenBlades = median_dev
-                    if abs(
-                            errorBetweenBlades) > ORTHOGONAL_ERROR_THRESHOLD and distanceToRotor > MIN_DISTANCE * 2:
+                    if abs(errorBetweenBlades) > ORTHOGONAL_ERROR_THRESHOLD:
                         moveCenteredMsg = String()
                         moveCenteredMsg.data = f"{errorBetweenBlades},{distanceToRotor}"
                         self.moveCenteredPublisher.publish(moveCenteredMsg)
@@ -123,7 +124,7 @@ class OrthogonalAlignmentState(InspectionState):
             elif self.current_substate == AlignmentSubstate.INTERMEDIATE_APPROACH:
                 self.validAlignmentCounter += 1
                 if self.validAlignmentCounter >= 20:
-                    remaining_distance = distanceToRotor - MIN_DISTANCE
+                    remaining_distance = distanceToRotor - self.distanceToApproach
                     self.get_logger().info(f"remain: {remaining_distance}")
                     if remaining_distance > 1:
                         approach_distance = min(
