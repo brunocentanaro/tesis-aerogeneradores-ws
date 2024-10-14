@@ -145,7 +145,7 @@ class OffboardControl(Node):
         try:
             takeoffHeight = float(msg.data)
             self.wayPointsGroupedForHeading.append(
-                [(0.0, 0.0, -takeoffHeight, 0.0, 'takeoff')])
+                [(0.0, 0.0, -takeoffHeight, self.currentHeading, 'takeoff')])
             self.takeOffWaypoint = [0.0, 0.0, -takeoffHeight]
             self.shouldArmAndTakeoff = True
         except ValueError:

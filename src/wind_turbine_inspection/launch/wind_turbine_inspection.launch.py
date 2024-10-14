@@ -28,6 +28,11 @@ def generate_launch_description():
             default_value='1',
             description='Argument for front inspection'
         ),
+        DeclareLaunchArgument(
+            'register_after_takeoff',
+            default_value='0',
+            description='Argument for front inspection'
+        ),
         Node(
             package='wind_turbine_inspection',
             namespace='wind_turbine_inspection',
@@ -58,7 +63,9 @@ def generate_launch_description():
             # output='screen',
             parameters=[
                 {'mission_param': LaunchConfiguration('mission_arg')},
-                {'front_inspection': LaunchConfiguration('front_inspection')}
+                {'front_inspection': LaunchConfiguration('front_inspection')},
+                {'register_after_takeoff': LaunchConfiguration(
+                    'register_after_takeoff')}
             ]
         ),
         Node(
