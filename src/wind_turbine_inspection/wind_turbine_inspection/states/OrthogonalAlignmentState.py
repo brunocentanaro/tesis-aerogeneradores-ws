@@ -10,6 +10,7 @@ VERTICAL_SEEN_DISTANCE = 8
 DISTANCE_TO_WIND_TURBINE = 55
 APPROACH_STEP = 5
 MIN_DISTANCE = 10
+ORTHOGONAL_ERROR_THRESHOLD = 0.5
 
 
 class AlignmentSubstate(Enum):
@@ -54,12 +55,6 @@ class OrthogonalAlignmentState(InspectionState):
         try:
             angle, intersectionYPercentage, avgDevWithSign, type, distanceToRotor = map(
                 float, msg.data.split(","))
-            if type == 0:  # Desviacion obtenida de lineas
-                factor = 0.3333
-                angle_threshold = 4
-            else:  # Desviacion obtenida con lidar
-                factor = 1
-                angle_threshold = 2
 
             self.lastPercentagesInY.append(intersectionYPercentage)
             if len(self.lastPercentagesInY) > 20:
@@ -111,15 +106,15 @@ class OrthogonalAlignmentState(InspectionState):
             elif self.current_substate == AlignmentSubstate.BECOME_ORTHOGONAL:
                 if len(self.lastDevs) >= 10:
                     median_dev = np.median(self.lastDevs)
-                    degrees = median_dev * factor
+                    errorBetweenBlades = median_dev
                     if abs(
-                            degrees) > angle_threshold and distanceToRotor > MIN_DISTANCE * 2:
+                            errorBetweenBlades) > ORTHOGONAL_ERROR_THRESHOLD and distanceToRotor > MIN_DISTANCE * 2:
                         moveCenteredMsg = String()
-                        moveCenteredMsg.data = f"{degrees},{distanceToRotor}"
+                        moveCenteredMsg.data = f"{errorBetweenBlades},{distanceToRotor}"
                         self.moveCenteredPublisher.publish(moveCenteredMsg)
                         self.inAnOperation = True
                         self.get_logger().info(
-                            f"Adjusting to become orthogonal by {degrees} degrees in {distanceToRotor} m")
+                            f"Adjusting to become orthogonal by {errorBetweenBlades} degrees in {distanceToRotor} m")
                     else:
                         # Move to next substate immediately
                         self.current_substate = AlignmentSubstate.INTERMEDIATE_APPROACH
