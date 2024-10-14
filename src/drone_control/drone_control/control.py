@@ -453,8 +453,6 @@ class OffboardControl(Node):
         self.processing_waypoint = False
         self.nearTicker = 0
         if (self.onWaypointReachedMessage and self.onWaypointReachedMessage != EMPTY_MESSAGE):
-            if (self.onWaypointReachedMessage == BLADE_START_MESSAGE):
-                self.blockNewWaypoints = True
             self.waypointReachedPublisher.publish(
                 String(data=self.onWaypointReachedMessage))
             self.onWaypointReachedMessage = EMPTY_MESSAGE

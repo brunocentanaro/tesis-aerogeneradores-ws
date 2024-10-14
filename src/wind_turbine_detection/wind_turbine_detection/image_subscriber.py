@@ -40,7 +40,7 @@ class ImageSubscriber(Node):
             String, 'change_mode', self.change_mode_callback, 10)
         self.inspection_distances_publisher = self.create_publisher(
             String, 'inspection_distances', 10)
-        self.centroid_distance_was_zero = False
+
         self.imageBr = CvBridge()
 
     def change_mode_callback(self, msg):
@@ -76,7 +76,7 @@ class ImageSubscriber(Node):
         #     self.angleToHaveWTCenteredOnImagePublisher.publish(
         #         String(data=f"{angle},{intersectionsAverageY},{avg_dev_with_sign},0,0"))
 
-    def prepare_image(self, data, threshold_value):
+    def prepare_image(self, data, threshold_value, use_closest=True):
         cv_image = self.br.imgmsg_to_cv2(data, desired_encoding='passthrough')
         cv_image = np.nan_to_num(cv_image, nan=0.0, posinf=0.0, neginf=0.0)
 
@@ -90,8 +90,12 @@ class ImageSubscriber(Node):
         if positive_values.size == 0:
             return None, None, None, None, None, None
 
-        min_distance = np.min(positive_values)
-        max_distance = min_distance + threshold_value
+        if use_closest:
+            min_distance = np.min(positive_values)
+            max_distance = min_distance + threshold_value
+        else:
+            max_distance = np.max(positive_values)
+            min_distance = max_distance - threshold_value
 
         mask = (cv_image >= min_distance) & (cv_image <= max_distance)
         cv_image_filtered = np.where(mask, cv_image, 0)
@@ -111,15 +115,19 @@ class ImageSubscriber(Node):
         if self.imageRecognitionState == ImageRecognitionState.OFF:
             return
 
+        useNearThreshold = False
+
         if self.imageRecognitionState == ImageRecognitionState.ALIGNMENT:
             threshold_value = MODE_ALIGNMENT_LIDAR_THRESHOLD
+            useNearThreshold = True
         elif self.imageRecognitionState == ImageRecognitionState.INSPECTION:
             threshold_value = MODE_INSPECTION_LIDAR_THRESHOLD
+            useNearThreshold = False
         else:
             return
 
         cv_image_filtered, positive_values_mask, img, min_distance, cv_normalized, cv_image_original = self.prepare_image(
-            data, threshold_value)
+            data, threshold_value, useNearThreshold)
 
         if cv_image_filtered is None:
             return
@@ -216,10 +224,7 @@ class ImageSubscriber(Node):
             percentage_in_y_of_centroid = centroid_y / \
                 cv_image_filtered.shape[0]
 
-            if not self.centroid_distance_was_zero and depth_at_centroid == 0:
-                self.centroid_distance_was_zero = True
-
-            if self.centroid_distance_was_zero and depth_at_centroid > 0:
+            if depth_at_centroid > 0:
                 self.inspection_distances_publisher.publish(String(
                     data=f"{percentage_in_x_of_centroid},{percentage_in_y_of_centroid},{depth_at_centroid}"
                 ))
