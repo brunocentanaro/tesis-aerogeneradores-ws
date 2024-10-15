@@ -8,20 +8,11 @@ DISTANCE_FROM_WAYPOINT_TO_ROTOR = 10
 class ApproachState(InspectionState):
     def __init__(self, state_machine):
         super().__init__('approach_state', WindTurbineInspectionStage.APPROACH, state_machine)
-        self.publisher = self.create_publisher(String, '/drone_control/gps_waypoint', 10)
         mission_param = self.shared_state['mission_param']
-
-        self.get_logger().info('Publishing waypoint')
         newCoord = windTurbineTypeAndLocation[mission_param]['coordinates']
-        height = windTurbineTypeAndLocation[mission_param]['height']
         distanceToWaypoint = DESIRED_DISTANCE_TO_WT_ROTOR + DISTANCE_FROM_WAYPOINT_TO_ROTOR
-        self.publish_waypoint(f"{newCoord['latitude']},{newCoord['longitude']},{distanceToWaypoint}") 
-
-    def publish_waypoint(self, waypoint):
-        msg = String()
-        msg.data = waypoint
-        self.publisher.publish(msg)
-        self.get_logger().info('Publishing: "%s"' % msg.data)
+        self.publisher = self.create_publisher(String, '/drone_control/gps_waypoint', 10)
+        self.publisher.publish(String(data=f"{newCoord['latitude']},{newCoord['longitude']},{distanceToWaypoint}"))
 
     def waypoint_reached_callback(self, msg):
         self.get_logger().info(f"ApproachState received: {msg.data}")
