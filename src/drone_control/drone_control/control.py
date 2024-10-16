@@ -8,9 +8,11 @@ from drone_control.utils import *
 from drone_control.path_planner.path_planner import path_planner
 from drone_control.path_planner.stl_gen.create_stl import WindTurbine
 
-IN_WAYPOINT_THRESHOLD = 0.25
-NEAR_WAYPOINT_THRESHOLD = 0.5
+IN_WAYPOINT_THRESHOLD = 0.4
+NEAR_WAYPOINT_THRESHOLD = 0.8
 EMPTY_MESSAGE = ""
+BLADE_COMPLETED_MESSAGE = "bladeCompleted"
+BLADE_START_MESSAGE = "bladeStart"
 
 
 class OffboardControl(Node):
@@ -143,7 +145,7 @@ class OffboardControl(Node):
         try:
             takeoffHeight = float(msg.data)
             self.wayPointsGroupedForHeading.append(
-                [(0.0, 0.0, -takeoffHeight, 0.0, 'takeoff')])
+                [(0.0, 0.0, -takeoffHeight, self.currentHeading, 'takeoff')])
             self.takeOffWaypoint = [0.0, 0.0, -takeoffHeight]
             self.shouldArmAndTakeoff = True
         except ValueError:
@@ -172,10 +174,14 @@ class OffboardControl(Node):
             if (len(splitMsg) == 3):
                 latitude, longitude, distanceToWaypoint = map(float, splitMsg)
 
-            x, y, z, yaw = self.process_new_waypoint(
+            distance, yaw = self.process_new_waypoint(
                 latitude, longitude, distanceToWaypoint)
+
+            changeInYaw = yaw - self.currentHeading
             self.wayPointsGroupedForHeading.append(
-                [(x, y, z, yaw, f"{latitude},{longitude},{z}")])
+                [(0, 0, 0, changeInYaw, EMPTY_MESSAGE)])
+            self.wayPointsGroupedForHeading.append(
+                [(distance, 0, 0, 0, f"{distance}, {yaw}")])
         except ValueError:
             self.get_logger().error(
                 'Invalid waypoint format. Expected format: "latitude,longitude,altitude"')
@@ -325,11 +331,15 @@ class OffboardControl(Node):
                 xToUse, yToUse, zToUse = x - \
                     previous[0], y - previous[1], z - previous[2]
                 if previous_group is not None and group_id == previous_group:
-                    newWaypointsGroup.extend(
-                        self.addIntermediateWaypoints(xToUse, yToUse, zToUse, 0.0))
+                    newIntermediateWaypoints = self.addIntermediateWaypoints(
+                        xToUse, yToUse, zToUse, 0.0)
+                    lastIntermediateWaypoints = newIntermediateWaypoints[-1]
+                    newIntermediateWaypoints[-1] = (
+                        lastIntermediateWaypoints[0], lastIntermediateWaypoints[1], lastIntermediateWaypoints[2], lastIntermediateWaypoints[3], BLADE_COMPLETED_MESSAGE)
+                    newWaypointsGroup.extend(newIntermediateWaypoints)
                 else:
                     newWaypointsGroup.append(
-                        (xToUse, yToUse, zToUse, 0.0, EMPTY_MESSAGE))
+                        (xToUse, yToUse, zToUse, 0.0, BLADE_START_MESSAGE))
                 previous_group = group_id
                 previous = (x, y, z)
             _, (x, y, z) = path[-1]
@@ -376,9 +386,7 @@ class OffboardControl(Node):
             latitude, longitude,
             distanceToWaypoint
         )
-        distanceForward = distance * math.cos(yaw)
-        distanceRight = distance * math.sin(yaw)
-        return distanceForward, distanceRight, 0, yaw
+        return distance, yaw
 
     def setNewSetpoint(self, x, y, z, yaw, message):
         self.previousYaw = self.currentYaw
@@ -429,11 +437,8 @@ class OffboardControl(Node):
             distanceToCoverY), abs(distanceToCoverZ))
         yawDistance = abs(self.currentYaw -
                           self.currentHeading) % (2 * math.pi)
-        if max_distance < IN_WAYPOINT_THRESHOLD and self.processing_waypoint:
-            if (yawDistance < 0.1):
-                self.onWaypointReached()
-            self.get_logger().info('yawDistance: %s, currentYaw: %s, currentHeading: %s' %
-                                   (yawDistance, self.currentYaw, self.currentHeading))
+        if max_distance < IN_WAYPOINT_THRESHOLD and self.processing_waypoint and yawDistance < 0.1:
+            self.onWaypointReached()
         elif max_distance < NEAR_WAYPOINT_THRESHOLD and self.processing_waypoint:
             self.nearTicker += 1
             if self.nearTicker > 50:

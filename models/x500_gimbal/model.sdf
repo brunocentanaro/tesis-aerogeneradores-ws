@@ -291,8 +291,8 @@
           <image>
             <format>R8G8B8</format>
              <format>R8G8B8</format>
-            <width>1280</width>
-            <height>720</height>
+            <width>3840</width>
+            <height>2160</height>
           </image>
           <clip>
             <near>0.05</near>

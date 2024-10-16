@@ -11,10 +11,11 @@ setup(
     data_files=[
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
-            ('share/ament_index/resource_index/packages',
-            ['resource/' + 'visualize.rviz']),
+        ('share/ament_index/resource_index/packages',
+         ['resource/' + 'visualize.rviz']),
         ('share/' + package_name, ['package.xml']),
-        (os.path.join('share', package_name), glob('launch/*launch.[pxy][yma]*')),
+        (os.path.join('share', package_name),
+         glob('launch/*launch.[pxy][yma]*')),
         (os.path.join('share', package_name), glob('resource/*rviz'))
     ],
     install_requires=['setuptools'],
@@ -29,7 +30,8 @@ setup(
             'processes = wind_turbine_inspection.processes:main',
             'visualizer = wind_turbine_inspection.visualizer:main',
             'controlV2 = wind_turbine_inspection.controlV2:main',
-            'mission_state_handler = wind_turbine_inspection.mission_state_handler:main'
+            'mission_state_handler = wind_turbine_inspection.mission_state_handler:main',
+            'testing_helper = wind_turbine_inspection.testing_helper:main',
         ],
     },
 )
