@@ -7,6 +7,5 @@ windTurbineTypeAndLocation = [
         },
         "rotorDiameter": 5,
         "bladeLength": 39,
-        "frontInspection": True
     },
 ]

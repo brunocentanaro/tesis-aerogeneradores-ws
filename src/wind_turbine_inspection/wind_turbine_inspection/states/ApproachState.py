@@ -2,8 +2,9 @@ from wind_turbine_inspection.states.base import InspectionState, WindTurbineInsp
 from wind_turbine_inspection.states.constants import windTurbineTypeAndLocation
 from std_msgs.msg import String
 
-DESIRED_DISTANCE_TO_WT_ROTOR = 55
+DESIRED_DISTANCE_TO_WT_ROTOR = 32
 DISTANCE_FROM_WAYPOINT_TO_ROTOR = 10
+
 
 class ApproachState(InspectionState):
     def __init__(self, state_machine):
