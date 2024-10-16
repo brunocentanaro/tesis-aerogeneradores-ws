@@ -174,10 +174,14 @@ class OffboardControl(Node):
             if (len(splitMsg) == 3):
                 latitude, longitude, distanceToWaypoint = map(float, splitMsg)
 
-            x, y, z, yaw = self.process_new_waypoint(
+            distance, yaw = self.process_new_waypoint(
                 latitude, longitude, distanceToWaypoint)
+
+            changeInYaw = yaw - self.currentHeading
             self.wayPointsGroupedForHeading.append(
-                [(x, y, z, yaw, f"{latitude},{longitude},{z}")])
+                [(0, 0, 0, changeInYaw, EMPTY_MESSAGE)])
+            self.wayPointsGroupedForHeading.append(
+                [(distance, 0, 0, 0, f"{distance}, {yaw}")])
         except ValueError:
             self.get_logger().error(
                 'Invalid waypoint format. Expected format: "latitude,longitude,altitude"')
@@ -382,9 +386,7 @@ class OffboardControl(Node):
             latitude, longitude,
             distanceToWaypoint
         )
-        distanceForward = distance * math.cos(yaw)
-        distanceRight = distance * math.sin(yaw)
-        return distanceForward, distanceRight, 0, yaw
+        return distance, yaw
 
     def setNewSetpoint(self, x, y, z, yaw, message):
         self.previousYaw = self.currentYaw
