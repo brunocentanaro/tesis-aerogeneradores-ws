@@ -1,7 +1,8 @@
 # generate_worlds.py
 
-def generate_worlds(params_list, base_world_file):
+def generate_worlds(base_world_file, params_list, wind_turbine_list):
     # Leer el contenido de baseWorld.sdf
+    generatedWorlds = []
     try:
         with open(base_world_file, 'r') as f:
             base_world_content = f.read()
@@ -9,46 +10,59 @@ def generate_worlds(params_list, base_world_file):
         print(f"Error: No se pudo encontrar el archivo '{base_world_file}'.")
         return
 
-    # Iterar sobre la lista de configuraciones
-    for wind_config in params_list:
-        wind = wind_config['wind']
-        drone_configs = wind_config['droneConfigurations']
+    for i in range(len(wind_turbine_list)):
+        windTurbinePosition = wind_turbine_list[i]
+        isFrontInspection = i == 0
+        for wind_config in params_list:
+            wind = wind_config['wind']
+            drone_configs = wind_config['droneConfigurations']
 
-        # Verificar que hay al menos una configuración de dron
-        if not drone_configs:
-            print("Advertencia: No hay configuraciones de dron para este viento.")
-            continue
+            # Verificar que hay al menos una configuración de dron
+            if not drone_configs:
+                print("Advertencia: No hay configuraciones de dron para este viento.")
+                continue
 
-        # Para cada configuración de dron, generar un mundo
-        for drone_config in drone_configs:
-            drone_position = drone_config['dronePosition']
-            world_name = drone_config['nameToUse']
-            output_file = f"{world_name}.sdf"
+            # Para cada configuración de dron, generar un mundo
+            for drone_config in drone_configs:
+                drone_position = drone_config['dronePosition']
+                world_name = drone_config['nameToUse']
+                suffix = "" if isFrontInspection else "_back"
+                output_file = f"{world_name}{suffix}.sdf"
+                generatedWorlds.append(output_file)
 
-            # Generar el contenido del SDF
-            sdf_content = f"""<sdf version='1.10'>
-  <world name='{world_name}'>
+                # Generar el contenido del SDF
+                sdf_content = f"""<sdf version='1.10'>
+<world name='{world_name}'>
     <wind>
-      <linear_velocity>{wind}</linear_velocity>
+    <linear_velocity>{wind}</linear_velocity>
     </wind>
+    {base_world_content}
     <include>
-      <uri>model://x500_gimbal</uri>
-      <name>x500_gimbal_0</name>
-      <pose>{drone_position}</pose>
+    <uri>model://x500_gimbal</uri>
+    <name>x500_gimbal_0</name>
+    <pose>{drone_position}</pose>
     </include>
-{base_world_content}
-  </world>
+    <include>
+    <uri>model://NuevoMolino</uri>
+    <name>Molino_0</name>
+    <pose>{windTurbinePosition}</pose>
+    </include>
+</world>
 </sdf>
 """
 
-            # Escribir el archivo SDF resultante
-            with open(output_file, 'w') as f:
-                f.write(sdf_content)
-
-            print(f"Archivo SDF generado: {output_file}")
+                # Escribir el archivo SDF resultante
+                with open(output_file, 'w') as f:
+                    f.write(sdf_content)
+                outputWithoutExtension = output_file.split(".")[0]
+                print('  		' + outputWithoutExtension)
 
 
 if __name__ == "__main__":
+    wind_turbine_list = [
+        '15.292486190795898 144.91380310058594 126.94837188720703 3.1186500007152751 -0.022236698983506227 -1.9153999947567857',
+        '20.898960113525391 159.20082092285156 126.59645843505859 -3.1193099998709783 0.022901101362971601 1.1968399432586223'
+    ]
     params_list = [
         {
             'wind': "10 0 0",
@@ -84,4 +98,4 @@ if __name__ == "__main__":
 
     base_world_file = "baseWorld.sdf"
 
-    generate_worlds(params_list, base_world_file)
+    generate_worlds(base_world_file, params_list, wind_turbine_list)

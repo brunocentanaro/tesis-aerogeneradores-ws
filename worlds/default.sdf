@@ -1,8 +1,10 @@
 <sdf version='1.10'>
-  <world name='default'>
-    <wind>
-      <linear_velocity>0 0 0</linear_velocity>
-    </wind>
+    <world name='default'>
+        <wind>
+        <linear_velocity>10 0 0</linear_velocity>
+        </wind>
+
+        
     <plugin name='gz::sim::systems::WindEffects' filename='gz-sim-wind-effects-system'>
       <force_approximation_scaling_factor>1</force_approximation_scaling_factor>
       <horizontal>
@@ -216,18 +218,8 @@
     </include>
     <include>
       <uri>model://NuevoMolino</uri>
-      <name>Molino_0</name>
-      <pose>15.292486190795898 144.91380310058594 126.94837188720703 3.1186500007152751 -0.022236698983506227 -1.9153999947567857</pose>
-    </include>
-    <include>
-      <uri>model://NuevoMolino</uri>
       <name>Molino_test</name>
       <pose>-63.083961486816406 -87.961135864257812 130.45883178710938 -3.1313199984408717 0.026471900461969011 1.8490400747854725</pose>
-    </include>
-   <include>
-      <uri>model://x500_gimbal</uri>
-      <name>x500_gimbal_0</name>
-      <pose>-68.860061649613584 -7.4869229476736825 54.224778049202084 1.2157343906005029e-10 2.3039614265674422e-05 -1.5556999413442238</pose>
     </include>
     <light name='sunUTC' type='directional'>
       <pose>-68 -66 150 0 0 0</pose>
@@ -248,5 +240,18 @@
         <falloff>0</falloff>
       </spot>
     </light>
-  </world>
-</sdf>
+
+
+        <include>
+            <uri>model://x500_gimbal</uri>
+            <name>x500_gimbal_0</name>
+            <pose>12.074535451124042 135.10949433237792 75 -0.10691173836875183 -0.02434792705363107 1.2608555326931348</pose>
+            </include>
+            <include>
+            <uri>model://NuevoMolino</uri>
+            <name>Molino_0</name>
+            <pose>15.292486190795898 144.91380310058594 126.94837188720703 3.1186500007152751 -0.022236698983506227 -1.9153999947567857</pose>
+            </include>
+        </world>
+        </sdf>
+    
