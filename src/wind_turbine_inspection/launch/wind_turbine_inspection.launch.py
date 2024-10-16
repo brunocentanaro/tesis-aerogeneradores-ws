@@ -57,6 +57,11 @@ def generate_launch_description():
         # ),
         Node(
             package='wind_turbine_inspection',
+            executable='testing_helper',
+            name='testing_helper',
+        ),
+        Node(
+            package='wind_turbine_inspection',
             executable='mission_state_handler',
             name='mission_state_handler',
             # prefix='gnome-terminal --',
