@@ -1,52 +1,90 @@
-# tesis-aerogeneradores-ws
+# Inspección Automática de Aerogeneradores con Drones
 
-## Tecnologías usadas
+Este repositorio contiene el código desarrollado durante la realización del proyecto de grado para la carrera de Ingeniería en Computación de la Facultad de Ingeniería (Fing) de la Universidad de la República (UdelaR).
 
+El trabajo se centra en implementar un sistema para la inspección de las palas de un aerogenerador utilizando drones autónomos. 
+
+El control del dron se gestiona a través del firmware PX4. 
+El posicionamiento del dron frente al rotor, asegurando que esté centrado y ortogonal, se logra mediante visión por computadora (computer vision) utilizando la transformada probabilística de Hough proporcionada por la librería OpenCV para detectar los componentes del aerogenerador. Además, para la planificación del trayecto del dron durante la inspección, se resolvió un Problema del Viajante Asimétrico (Asymmetric TSP) utilizando Google OR-Tools, lo que permite optimizar la ruta más corta para inspeccionar las palas de manera eficiente.
+
+### Autores
+- Carolina Acosta
+- Bruno Cantanaro
+- Martín Tapia
+
+## Contenido
+- [Requerimientos](#requerimientos)
+- [Set up del proyecto](#set-up-del-proyecto)
+  - [Mundos y modelos](#mundos-y-modelos)
+  - [Modificaciones Necesarias en el Modelo OakD-Lite](#modificaciones-necesarias-en-el-modelo-oakd-lite)
+- [Compilación](#compilación)
+  - [Compilación de Paquetes Específicos](#compilación-de-paquetes-específicos)
+- [Ejecución](#ejecución)
+- [Nodos relevantes](#nodosmodulos-relevantes)
+- [Pruebas](#pruebas)
+- [Informe](#informe)
+
+## Requerimientos
 - Ubuntu 22.04
-- [ROS2 Humble](https://docs.ros.org/en/humble/)
-- [Gazebo Garden](https://gazebosim.org/docs/garden/install)
-- [PX4](https://docs.px4.io/main/en/ros2/user_guide#installation-setup)
+- ROS2 Humble: [Guía de instalación](https://docs.ros.org/en/humble/Installation.html)
+- Gazebo Garden: [Guía de instalación](https://gazebosim.org/docs/garden/install)
+- PX4: [Guía de instalación](https://docs.px4.io/main/en/ros2/user_guide#installation-setup)
 
-Despues de clonar el repositorio de PX4:
-- `git checkout f8a42bcd58`
-- Copiar el archivo add_gimbal_changes.patch detro de la carpeta /PX4-Autopilot y en ese directorio ejecutar `git apply add_gimbal_changes.patch`
-- `git submodule update --init --recursive`
-
-## Instrucciones
-
-### Instalar QGroundControl
-
-https://docs.qgroundcontrol.com/master/en/qgc-user-guide/getting_started/download_and_install.html#ubuntu
-
-y ponerlo en la carpeta del home
-
-### Dependencias python
-
-Correr en la terminal
-
+Después de clonar el repositorio de PX4, es necesario posicionarse en un commit específico para evitar breaking changes introducidos en versiones posteriores. Para ello, ejecuta el siguiente comando:
+```bash
+git checkout f8a42bcd58`
 ```
-pip install mavsdk
-pip install aioconsole
-pip install pygame
+
+Para agregar los cambios introducidos por el equipo que permiten hacer funcional el gimbal del dron, sigue estos pasos:
+1. Copia el archivo `add_gimbal_changes.patch` dentro de la carpeta `/PX4-Autopilot`.
+
+2. Desde el directorio `/PX4-Autopilot`, ejecuta el siguiente comando para aplicar los cambios:
+
+```bash
+git apply add_gimbal_changes.patch
+```
+
+3. Finalmente, ejecuta el siguiente comando para actualizar los submódulos necesarios:
+
+```bash
+git submodule update --init --recursive
+```
+
+- QGroundControl: [Guía de instalación](https://docs.qgroundcontrol.com/master/en/qgc-user-guide/getting_started/download_and_install.html#ubuntu)
+
+Una vez descargado el archivo `QGroundControl.AppImage`, colócalo en tu carpeta home (`~/`).
+
+## Set up del proyecto
+
+Instalar el paquete `ros-humble-ros-gzgarden` para agregar herramientas que permiten la integración de ROS 2 Humble con el simulador Gazebo Garden, ejecutando el siguiente comando:
+
+```bash
 sudo apt install ros-humble-ros-gzgarden
-pip install numpy
-pip install opencv-python
-pip install ultralytics
-pip install geopy
-pip install ortools
-pip install numpy-stl
-pip install k-means-constrained
+```
+
+Instalar paquetes de python:
+
+``` bash
+pip install mavsdk aioconsole pygame numpy opencv-python ultralytics geopy ortools numpy-stl k-means-constrained
 ```
 
 ### Mundos y modelos
 
-Copiar los modelos dentro de la instalacion de PX4 a
-`Tools/simulation/gz/models`
+Para configurar los modelos y mundos en PX4, sigue estos pasos:
 
-Y los mundos
-`Tools/simulation/gz/worlds`
+1. Coloca los modelos en el directorio correspondiente dentro de la instalación de PX4:
+```bash
+/PX4-Autopilot/Tools/simulation/gz/models
+```
+esto incluye el modelo del dron y del aerogenerador.
 
-En `Tools/simulation/gz/models/OakD-Lite/model.sdf` realizar las siguientes modificaciones:
+2. Coloca los mundos en el siguiente directorio:
+```bash
+/PX4-Autopilot/Tools/simulation/gz/worlds
+```
+
+### Modificaciones Necesarias en el Modelo OakD-Lite
+Accede al archivo de configuración del modelo `OakD-Lite` y realiza las siguientes modificaciones en `/PX4-Autopilot/Tools/simulation/gz/models/OakD-Lite/model.sdf`:
 
 ```diff
 <sensor name="IMX214" type="camera">
@@ -100,25 +138,51 @@ En `Tools/simulation/gz/models/OakD-Lite/model.sdf` realizar las siguientes modi
       </sensor>
 ```
 
-### Compilar
+## Compilación
 
-#### Si estamos corriendo por primera vez:
-
-```
+Para compilar todo el proyecto utiliza el siguiente comando:
+```bash
 colcon build
 ```
 
-#### Si ya compilamos los msj y ros com
-
-```
+### Compilación de Paquetes Específicos
+Si ya has compilado anteriormente y solo necesitas recompilar los paquetes modificados, utiliza:
+```bash
 colcon build --packages-select wind_turbine_detection wind_turbine_inspection
 ```
 
-(solo los paquetes que hayamos cambiado)
+(Asegúrate de incluir solo los paquetes que has cambiado.)
 
-### Correr
 
-```
+## Ejecución
+Una vez completada la compilación, ejecuta el proyecto con los siguientes comandos:
+
+```bash
 source install/setup.bash
 ros2 launch wind_turbine_inspection wind_turbine_inspection.launch.py
 ```
+
+## Nodos/modulos relevantes
+A continueción se describen los nodos o modulos más relevantes.
+
+**drone_control/shortest_path**:
+Es un módulo que genera un modelo STL de una turbina eólica y calcula la trayectoria más corta desde una posición inicial hasta una final, teniendo en cuenta una distancia de seguridad.
+
+**drone_control:control**:
+Nodo dedicado al control del dron.
+Implementa la comunicación bidireccional con el firmware PX4, incluyendo comandos de modo de vuelo, puntos de trayectoria y comandos de vehículo. Publica setpoints de posición y velocidad en tópicos específicos, mientras que también se suscribe a los tópicos de PX4 para obtener información crítica del estado del dron. Además, implementa un sistema de waypoints que permite controlar el movimiento del dron en función de su orientación actual, y tiene la capacidad de enviar setpoints de corrección en tiempo real para adaptarse a cambios en el entorno.
+
+**wind_turbine_inspection:mission_state_handler**:
+Es el nodo encargado de gestionar una serie de estados en un ciclo de operación.
+
+**wind_turbine_detection:image_subscriber**:
+Se encarga de recibir imágenes de un sensor LiDAR y realizar un procesamiento basado en el estado actual del sistema.
+En el caso de que se esté en el estado `OrthogonalAlignmentState` se detecta las aspas y el rotor para poder centrar el rotor y colocar el dron ortogonal al molino.
+Si el estado es `RegistrationState` se detecta el centroide del aspa para poder centrar el mismo en el frame y que el aspa no se salga del frame.
+
+## Pruebas
+
+TODO
+
+## Informe
+Para más información, el informe se encuentra en [documentos](/documents).
