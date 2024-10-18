@@ -48,7 +48,16 @@ class TestingHelper(Node):
             '/inspection_state_machine/state',
             self.state_callback,
             10)
+        self.drone_position_error_sub = self.create_subscription(
+            String,
+            '/drone_control/position_error',
+            self.position_error_callback,
+            10)
         self.testResult = None
+
+    def position_error_callback(self, msg):
+        if self.testResult is not None and not self.testResult.isCompleted:
+            self.testResult.addPositionError(msg.data)
 
     def vehicle_local_position_callback(self, msg):
         if self.testResult is not None and not self.testResult.isCompleted:

@@ -13,6 +13,7 @@ class TestResult:
         self.localPositions = []
         self.corrections = []
         self.isCompleted = False
+        self.positionErrors = []
 
     def addBatteryUsage(self, batteryUsage):
         self.batteryUsage.append(batteryUsage)
@@ -25,6 +26,9 @@ class TestResult:
 
     def addCorrection(self, correction):
         self.corrections.append(correction)
+
+    def addPositionError(self, positionError):
+        self.positionErrors.append(positionError)
 
     def close(self, log):
         self.endTimestamp = time.time()
@@ -43,7 +47,8 @@ class TestResult:
             'setPoints': self.setPoints,
             'localPositions': self.localPositions,
             'corrections': self.corrections,
-            'isCompleted': self.isCompleted
+            'isCompleted': self.isCompleted,
+            'positionErrors': self.positionErrors,
         }
 
         timestamp_str = time.strftime('%Y-%m-%d_%H-%M-%S')

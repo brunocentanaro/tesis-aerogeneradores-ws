@@ -1,6 +1,8 @@
 import math
 from geopy.distance import geodesic
 import numpy as np
+from sympy import Point3D, Segment3D
+
 
 def get_bearing(lat1, lon1, lat2, lon2):
     lat1_rad = math.radians(lat1)
@@ -9,11 +11,14 @@ def get_bearing(lat1, lon1, lat2, lon2):
     lon2_rad = math.radians(lon2)
     dlon = lon2_rad - lon1_rad
     x = math.sin(dlon) * math.cos(lat2_rad)
-    y = math.cos(lat1_rad) * math.sin(lat2_rad) - math.sin(lat1_rad) * math.cos(lat2_rad) * math.cos(dlon)
+    y = math.cos(lat1_rad) * math.sin(lat2_rad) - \
+        math.sin(lat1_rad) * math.cos(lat2_rad) * math.cos(dlon)
     bearing = math.atan2(x, y)
     return bearing
 
-def getCoordinateInLineToWindTurbineXDistanceBefore(lat1, lon1, lat2, lon2, distance):
+
+def getCoordinateInLineToWindTurbineXDistanceBefore(
+        lat1, lon1, lat2, lon2, distance):
     drone_coord = (math.radians(lat1), math.radians(lon1))
     destination_coord = (math.radians(lat2), math.radians(lon2))
     total_distance = geodesic((lat1, lon1), (lat2, lon2)).meters
@@ -30,8 +35,16 @@ def rotate_ned(north, east, down, angle):
         [np.sin(angle), np.cos(angle), 0],
         [0, 0, 1]
     ])
-    
+
     ned_coords = np.array([north, east, down])
     rotated_coords = np.dot(rotation_matrix, ned_coords)
-    
+
     return rotated_coords[0], rotated_coords[1], rotated_coords[2]
+
+
+def get_distance_to_segment(previousSetpoint, currentSetpoint, currentPos):
+    p1 = Point3D(previousSetpoint[0], previousSetpoint[1], previousSetpoint[2])
+    p2 = Point3D(currentSetpoint[0], currentSetpoint[1], currentSetpoint[2])
+    p3 = Point3D(currentPos[0], currentPos[1], currentPos[2])
+    segment = Segment3D(p1, p2)
+    return segment.distance(p3)
