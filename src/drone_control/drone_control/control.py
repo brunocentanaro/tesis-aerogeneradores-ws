@@ -44,6 +44,8 @@ class OffboardControl(Node):
         self.blockNewWaypoints = False
         self.initPublishers()
         self.initSubscribers()
+        self.startedTurbineInspection = False
+        self.inspectingBlade = False
 
     def initPublishers(self):
         self.offboard_control_mode_publisher = self.create_publisher(
@@ -163,6 +165,9 @@ class OffboardControl(Node):
 
     def error_timer_callback(self):
         if not self.processing_waypoint or self.currentLocalPosition is None:
+            return
+
+        if (self.startedTurbineInspection and not self.inspectingBlade):
             return
 
         distanceToDesiredPlace = get_distance_to_segment(
@@ -472,6 +477,12 @@ class OffboardControl(Node):
         self.processing_waypoint = False
         self.nearTicker = 0
         if (self.onWaypointReachedMessage and self.onWaypointReachedMessage != EMPTY_MESSAGE):
+            if not self.startedTurbineInspection and self.onWaypointReachedMessage == BLADE_START_MESSAGE:
+                self.startedTurbineInspection = True
+                self.inspectingBlade = True
+            if self.startedTurbineInspection and self.onWaypointReachedMessage == BLADE_COMPLETED_MESSAGE:
+                self.inspectingBlade = False
+
             self.waypointReachedPublisher.publish(
                 String(data=self.onWaypointReachedMessage))
             self.onWaypointReachedMessage = EMPTY_MESSAGE
