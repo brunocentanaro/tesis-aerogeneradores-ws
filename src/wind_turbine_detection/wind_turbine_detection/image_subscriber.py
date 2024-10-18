@@ -110,7 +110,7 @@ class ImageSubscriber(Node):
         cv_8u = (cv_normalized * 255).astype(np.uint8)
         img = cv2.applyColorMap(cv_8u, cv2.COLORMAP_JET)
 
-        return cv_image_filtered, positive_values_mask, img, min_distance, cv_normalized, cv_image
+        return cv_image_filtered, mask, img, min_distance, cv_normalized, cv_image
 
     def depth_listener_callback(self, data):
         if self.imageRecognitionState == ImageRecognitionState.OFF:
@@ -182,9 +182,9 @@ class ImageSubscriber(Node):
                 f'Error en alignment_listener_callback: {e}')
 
     def inspection_listener_callback(
-            self, cv_image_filtered, positive_values_mask, img, min_distance, cv_normalized):
+            self, cv_image_filtered, mask, img, min_distance, cv_normalized):
         try:
-            indices = np.argwhere(positive_values_mask)
+            indices = np.argwhere(mask)
 
             if indices.size == 0:
                 return
@@ -230,7 +230,7 @@ class ImageSubscriber(Node):
                 ))
         except Exception as e:
             self.get_logger().error(
-                f'Error en inspection_listener_callback: {e}')
+                f'Error in inspection_listener_callback: {e}')
 
 
 def main(args=None):

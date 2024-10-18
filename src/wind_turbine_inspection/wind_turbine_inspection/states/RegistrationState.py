@@ -72,14 +72,6 @@ class RegistrationState(InspectionState):
                 medianX = np.median(self.lastNeededPercentX)
                 medianY = np.median(self.lastNeededPercentY)
                 medianDistance = np.median(self.lastNeededDistance)
-
-                stdDevX = np.std(self.lastNeededPercentX)
-                stdDevY = np.std(self.lastNeededPercentY)
-                stdDevDistance = np.std(self.lastNeededDistance)
-
-                self.get_logger().info(
-                    f"x: med: {medianX}, std: {stdDevX}, y: med: {medianY}, std: {stdDevY}, distance: med: {medianDistance}, std: {stdDevDistance}")
-
                 correction_vector = [0, 0, 0, 0]  # [north, east, down, yaw]
 
                 if medianX < X_THRESHOLD:

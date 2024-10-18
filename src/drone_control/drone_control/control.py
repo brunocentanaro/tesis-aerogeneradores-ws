@@ -34,6 +34,7 @@ class OffboardControl(Node):
 
         self.positionCorrectionSetpoint = None
         self.timer = self.create_timer(0.1, self.timer_callback)
+        self.errorTimer = self.create_timer(1 / 2, self.error_timer_callback)
 
         self.currentHeading = 0.0
         self.lastInspectionLocation = (0, 0, 0)
@@ -55,6 +56,8 @@ class OffboardControl(Node):
             ManualControlSetpoint, '/fmu/in/manual_control_setpoint', 10)
         self.waypointReachedPublisher = self.create_publisher(
             String, 'waypoint_reached', 10)
+        self.positionErrorPublisher = self.create_publisher(
+            String, 'position_error', 10)
 
     def initSubscribers(self):
         qos_profile = QoSProfile(
@@ -157,6 +160,18 @@ class OffboardControl(Node):
 
     def localPositionCallback(self, msg):
         self.currentLocalPosition = [msg.x, msg.y, msg.z]
+
+    def error_timer_callback(self):
+        if not self.processing_waypoint or self.currentLocalPosition is None:
+            return
+
+        distanceToDesiredPlace = get_distance_to_segment(
+            self.previous_setpoint,
+            self.current_setpoint,
+            self.currentLocalPosition
+        ).evalf()
+        self.positionErrorPublisher.publish(
+            String(data=str(distanceToDesiredPlace)))
 
     def globalPositionCallback(self, msg):
         self.currentPosition = [msg.lat, msg.lon, msg.alt]
@@ -291,9 +306,9 @@ class OffboardControl(Node):
                 newPossibleSpeed = [xNext * multiplier,
                                     yNext * multiplier, zNext * multiplier]
 
-                hasChangeOfDirection = (newPossibleSpeed[0] * self.currentSetpointEndSpeed[0] < 0 or
-                                        newPossibleSpeed[1] * self.currentSetpointEndSpeed[1] < 0 or
-                                        newPossibleSpeed[2] * self.currentSetpointEndSpeed[2] < 0)
+                hasChangeOfDirection = (newPossibleSpeed[0] * self.currentSetpointEndSpeed[0] <= 0 or
+                                        newPossibleSpeed[1] * self.currentSetpointEndSpeed[1] <= 0 or
+                                        newPossibleSpeed[2] * self.currentSetpointEndSpeed[2] <= 0)
 
                 if hasChangeOfDirection:
                     self.currentSetpointEndSpeed = [0.0, 0.0, 0.0]
@@ -315,6 +330,7 @@ class OffboardControl(Node):
                         north, east, down, currentHeading)
                     self.wayPointsStack.append(
                         (newNorth, newEast, newDown, yawChange, message))
+                self.currentSetpointEndSpeed = [0.0, 0.0, 0.0]
 
     def inspectWindTurbine(self, msg):
         rotorDiameter, bladeLength = map(float, msg.data.split(','))
@@ -445,6 +461,7 @@ class OffboardControl(Node):
                 self.get_logger().info(
                     'Ticks near this waypoint: %s' %
                     self.nearTicker)
+
         msg.velocity = self.currentSetpointEndSpeed
 
         msg.yaw = self.currentYaw
