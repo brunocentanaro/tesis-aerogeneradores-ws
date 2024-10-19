@@ -20,8 +20,8 @@ class TestingHelper(Node):
             history=QoSHistoryPolicy.RMW_QOS_POLICY_HISTORY_KEEP_LAST,
             depth=1
         )
-        self.startMeasurementState = TakeoffState
-        self.endMeasurementState = RegistrationState
+        self.startMeasurementState = RegistrationState
+        self.endMeasurementState = ReturnHomeState
 
         self.local_position_sub = self.create_subscription(
             VehicleLocalPosition,
@@ -57,7 +57,8 @@ class TestingHelper(Node):
 
     def position_error_callback(self, msg):
         if self.testResult is not None and not self.testResult.isCompleted:
-            self.testResult.addPositionError(msg.data)
+            errorNumber = float(msg.data)
+            self.testResult.addPositionError(errorNumber)
 
     def vehicle_local_position_callback(self, msg):
         if self.testResult is not None and not self.testResult.isCompleted:

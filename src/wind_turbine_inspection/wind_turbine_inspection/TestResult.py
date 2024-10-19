@@ -38,6 +38,10 @@ class TestResult:
         log.info(f"Test duration: {self.duration:.2f} seconds")
         log.info(f"Number of corrections: {len(self.corrections)}")
         log.info(f"Number of set points: {len(self.setPoints)}")
+        medianError = np.median(self.positionErrors)
+        stdDevError = np.std(self.positionErrors)
+        log.info(
+            f"Median position error: {medianError:.2f} m (std dev: {stdDevError:.2f})")
 
         data = {
             'initTimestamp': self.initTimestamp,
@@ -49,6 +53,8 @@ class TestResult:
             'corrections': self.corrections,
             'isCompleted': self.isCompleted,
             'positionErrors': self.positionErrors,
+            'medianError': medianError,
+            'stdDevError': stdDevError
         }
 
         timestamp_str = time.strftime('%Y-%m-%d_%H-%M-%S')
