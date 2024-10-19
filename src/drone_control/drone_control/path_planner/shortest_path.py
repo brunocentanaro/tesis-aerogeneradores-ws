@@ -13,7 +13,7 @@ data = {}
 use_cache = True
 
 class Section:
-    def __init__(self, points, safe_distance=0):
+    def __init__(self, points, safe_distance=0, angle_y=0, angle_z=0):
         self.points = np.array(points) + np.array([0,1,0]) * safe_distance
         
         conteo_x = Counter(self.points[:, 0])
@@ -23,10 +23,28 @@ class Section:
         else:
             indices = np.argsort(self.points[:, 0])
         self.points = self.points[indices]
-        self.p1 = midpoint(self.points[0], self.points[1])  # lowest point (no need to sort)
-        self.p2 = midpoint(self.points[-1], self.points[-2])  # highest point (need to reorder list)
+        self.p1 = self.rotate_point(midpoint(self.points[0], self.points[1]), angle_y, angle_z)  # lowest point (no need to sort)
+        self.p2 = self.rotate_point(midpoint(self.points[-1], self.points[-2]), angle_y, angle_z)  # highest point (need to reorder list)
         self.p1_str = str(self.p1)
         self.p2_str = str(self.p2)
+
+    def rotate_point(self, point, angle_y, angle_z):
+        angle_y_radians = np.radians(angle_y)
+        angle_z_radians = np.radians(angle_z)
+
+        rotation_matrix_y = np.array([
+            [np.cos(angle_y_radians), 0, np.sin(angle_y_radians)],
+            [0, 1, 0],
+            [-np.sin(angle_y_radians), 0, np.cos(angle_y_radians)]
+        ])
+
+        rotation_matrix_z = np.array([
+            [np.cos(angle_z_radians), -np.sin(angle_z_radians), 0],
+            [np.sin(angle_z_radians), np.cos(angle_z_radians), 0],
+            [0, 0, 1]
+        ])
+        rotation_matrix = np.dot(rotation_matrix_z, rotation_matrix_y)
+        return np.dot(rotation_matrix, point)
 
     def get_ordered_points(self, p_str):
         if p_str == self.p1_str:
@@ -45,12 +63,12 @@ def dist(p_to, p_from=np.array([0, 0, 0])):
     v = p_to - p_from
     return np.linalg.norm(v)
 
-def shortest_path_from_stl(start_node, end_node, safe_distance, stl_name):
+def shortest_path_from_stl(start_node, end_node, safe_distance, angle_y, angle_z, stl_name):
     wt = Wireframe.from_stl_path(stl_name)
     gps = grouping(wt)
     sections = []
     for g in gps:
-        sections.append(Section(g, safe_distance))
+        sections.append(Section(g, safe_distance, angle_y, angle_z))
     return shortest_path(start_node, sections, end_node)
 
 def shortest_path(start_node, sections: List[Section], end_node):
@@ -209,21 +227,12 @@ def save_traj(filename, traj):
 
 if __name__ == '__main__':
     wt = Wireframe.from_stl_path('stl_gen/turbine.stl')
-    # matriz de rotacion sobre su propio eje (intrinseca) en el eje Z
-#    r = Rotation.from_euler("XYZ", [0, 0, 90], degrees=True).as_matrix() 
-
-#    r = TRotation().set_matrix(r, "XYZ")
-#    t = Transform(np.expand_dims(np.array([-80, 0, 20]), axis=1), r,
-#                  translate_before_rotate=False)
-#    wt = wt.transform(t)
     gps = grouping(wt)
     sections = []
     for i, g in enumerate(gps):
         sections.append(Section(g))
-
     start_node = np.array([0, -30, 30])
     traj = shortest_path(start_node, sections)
     plot_best_order(start_node, traj)
     plot_points(traj)
     save_traj(f"p162", traj)
-    debug = 0
