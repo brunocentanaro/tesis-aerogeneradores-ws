@@ -269,7 +269,10 @@ def y_inverted(lines):
                 if y_max_vertical < highest_y:
                     highest = (line1, line2, line3)
                     highest_y = y_max_vertical
-    return highest, vertical_line
+            else:
+                if highest is None:
+                    highest = (line1, line2, line3)
+    return highest
 
 # Encuentra la intersección entre dos líneas representadas por (x1, y1, x2, y2)
 
@@ -353,7 +356,7 @@ def avg_line(lines):
 
 def findYShape(img, lines, img_name):
     # Find configurations of lines that form a 'Y' inverted shape
-    y_inverted_found, verticalLine = y_inverted(lines)
+    y_inverted_found = y_inverted(lines)
 
     # Draw the detected lines on the image
     if y_inverted_found:

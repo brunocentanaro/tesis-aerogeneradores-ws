@@ -20,8 +20,8 @@ El posicionamiento del dron frente al rotor, asegurando que esté centrado y ort
 - [Compilación](#compilación)
   - [Compilación de Paquetes Específicos](#compilación-de-paquetes-específicos)
 - [Ejecución](#ejecución)
-- [Nodos relevantes](#nodosmodulos-relevantes)
 - [Pruebas](#pruebas)
+- [Nodos relevantes](#nodosmodulos-relevantes)
 - [Informe](#informe)
 
 ## Requerimientos
@@ -78,9 +78,11 @@ Para configurar los modelos y mundos en PX4, sigue estos pasos:
 ```
 esto incluye el modelo del dron y del aerogenerador.
 
-2. Coloca los mundos en el siguiente directorio:
+2. Para generar los mundos copiar los archivos `default.sdf`, `baseWorld.sdf` y `worldGenerator.py` de la carpeta worlds del proyecto a `/PX4-Autopilot/Tools/simulation/gz/worlds`.
+En ese directorio ejecutar:
+
 ```bash
-/PX4-Autopilot/Tools/simulation/gz/worlds
+python3 worldGenerator.py
 ```
 
 ### Modificaciones Necesarias en el Modelo OakD-Lite
@@ -159,8 +161,30 @@ Una vez completada la compilación, ejecuta el proyecto con los siguientes coman
 
 ```bash
 source install/setup.bash
-ros2 launch wind_turbine_inspection wind_turbine_inspection.launch.py
+ros2 launch wind_turbine_inspection wind_turbine_inspection.launch.py mission_arg:=0 front_inspection:=1 register_after_takeoff:=0
 ```
+Explicación de los parámetros del launch:
+- mission_arg indica que molino se quiere inspeccionar
+- front_inspection indica si se va realizar la inspeccion delantera o trasera
+- register_after_takeoff indica si se quiere registrar inmediatamente despues del takeoff (sin acercarse y colocarse ortogonal al molino)
+Estoas parámetros son especialmente útiles para poder probar partes de la misión.
+
+Para indicar al dron que inicie la misión y también cuando se quiere indicar que se giraron las aspas:
+```bash
+ros2 service call /comenzar_inspeccion std_srvs/srv/Trigger
+```
+
+## Pruebas
+
+Se debe indicar en el testing_helper.py en que estados quiero comenzar y terminar de recabar datos.
+
+Para que la simulacion sea headless:
+```bash
+HEADLESS=1 make px4_sitl gz_x500_gimbal
+```
+
+
+TODO
 
 ## Nodos/modulos relevantes
 A continueción se describen los nodos o modulos más relevantes.
@@ -179,10 +203,6 @@ Es el nodo encargado de gestionar una serie de estados en un ciclo de operación
 Se encarga de recibir imágenes de un sensor LiDAR y realizar un procesamiento basado en el estado actual del sistema.
 En el caso de que se esté en el estado `OrthogonalAlignmentState` se detecta las aspas y el rotor para poder centrar el rotor y colocar el dron ortogonal al molino.
 Si el estado es `RegistrationState` se detecta el centroide del aspa para poder centrar el mismo en el frame y que el aspa no se salga del frame.
-
-## Pruebas
-
-TODO
 
 ## Informe
 Para más información, el informe se encuentra en [documentos](/documents).
