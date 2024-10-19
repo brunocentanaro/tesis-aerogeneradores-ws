@@ -46,15 +46,14 @@ class TestResult:
         data = {
             'initTimestamp': self.initTimestamp,
             'endTimestamp': self.endTimestamp,
+            'medianError': medianError,
+            'stdDevError': stdDevError,
             'duration': self.duration,
             'batteryUsage': self.batteryUsage,
             'setPoints': self.setPoints,
             'localPositions': self.localPositions,
             'corrections': self.corrections,
-            'isCompleted': self.isCompleted,
             'positionErrors': self.positionErrors,
-            'medianError': medianError,
-            'stdDevError': stdDevError
         }
 
         timestamp_str = time.strftime('%Y-%m-%d_%H-%M-%S')
