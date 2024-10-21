@@ -32,7 +32,7 @@ El posicionamiento del dron frente al rotor, asegurando que esté centrado y ort
 
 Después de clonar el repositorio de PX4, es necesario posicionarse en un commit específico para evitar breaking changes introducidos en versiones posteriores. Para ello, ejecuta el siguiente comando:
 ```bash
-git checkout f8a42bcd58`
+git checkout f8a42bcd58
 ```
 
 Para agregar los cambios introducidos por el equipo que permiten hacer funcional el gimbal del dron, sigue estos pasos:

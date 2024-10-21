@@ -1,13 +1,13 @@
 # generate_worlds.py
 
 def generate_worlds(base_world_file, params_list, wind_turbine_list):
-    # Leer el contenido de baseWorld.sdf
+    # Read the contents of baseWorld.sdf
     generatedWorlds = []
     try:
         with open(base_world_file, 'r') as f:
             base_world_content = f.read()
     except FileNotFoundError:
-        print(f"Error: No se pudo encontrar el archivo '{base_world_file}'.")
+        print(f"Error: Could not find file '{base_world_file}'.")
         return
 
     for i in range(len(wind_turbine_list)):
@@ -17,12 +17,12 @@ def generate_worlds(base_world_file, params_list, wind_turbine_list):
             wind = wind_config['wind']
             drone_configs = wind_config['droneConfigurations']
 
-            # Verificar que hay al menos una configuración de dron
+            # Verify that there is at least one drone configuration
             if not drone_configs:
-                print("Advertencia: No hay configuraciones de dron para este viento.")
+                print("Warning: There are no drone settings for this wind.")
                 continue
 
-            # Para cada configuración de dron, generar un mundo
+            # For each drone configuration, generate a world
             for drone_config in drone_configs:
                 drone_position = drone_config['dronePosition']
                 world_name = drone_config['nameToUse']
@@ -30,7 +30,7 @@ def generate_worlds(base_world_file, params_list, wind_turbine_list):
                 output_file = f"{world_name}{suffix}.sdf"
                 generatedWorlds.append(output_file)
 
-                # Generar el contenido del SDF
+                # Generate the content of the SDF
                 sdf_content = f"""<sdf version='1.10'>
 <world name='{world_name}'>
     <wind>
@@ -51,7 +51,7 @@ def generate_worlds(base_world_file, params_list, wind_turbine_list):
 </sdf>
 """
 
-                # Escribir el archivo SDF resultante
+                # Write the resulting SDF file
                 with open(output_file, 'w') as f:
                     f.write(sdf_content)
                 outputWithoutExtension = output_file.split(".")[0]

@@ -6,19 +6,19 @@ from wind_turbine_detection.constants import CAMERA_FOV
 
 
 def preproces_and_hough(image):
-    # Convertir a escala de grises
+    # Convert to grayscale
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-    # Mejorar el contraste
+    # Improve contrast
     gray = cv2.equalizeHist(gray)
 
-    # Aplicar suavizado
+    # Apply smoothing
     blurred = cv2.GaussianBlur(gray, (5, 5), 0)
 
-    # Aplicar detector de bordes Canny con umbrales ajustados
+    # Apply Canny edge detector with adjusted thresholds
     edges = cv2.Canny(blurred, threshold1=50, threshold2=100, apertureSize=3)
 
-    # Aplicar la Transformada de Hough Probabilística con parámetros ajustados
+    # Apply the Probabilistic Hough Transform with adjusted parameters
     lines = cv2.HoughLinesP(
         edges,
         rho=1,
@@ -74,14 +74,14 @@ def determine_direction_with_depth(y_inverted_found, depth_image, angle_rotated=
         lower_y_coincidence = lower_ry
 
     if lower_y_coincidence:
-        # Calcula la pendiente (m) e intersección (b) de ambas líneas
+        # Calculate the slope (m) and intersection (b) of both lines
         m_left = slope(left_edge)
         b_left = intercept(left_edge, m_left)
 
         m_right = slope(right_edge)
         b_right = intercept(right_edge, m_right)
 
-        # Obtén el valor de x para el y de lower_coincidence en ambas líneas
+        # Get the value of x for the y of lower_coincidence on both lines
         x_left = x_at_y(m_left, b_left, lower_y_coincidence,
                         lx1 if m_left == float('inf') else None)
         x_right = x_at_y(m_right, b_right, lower_y_coincidence,
@@ -99,29 +99,25 @@ def determine_direction_with_depth(y_inverted_found, depth_image, angle_rotated=
 
         orientation = 0
         if distance_left < distance_right:
-            orientation = 1  # Sentido antihorario: 1
+            orientation = 1  # Counterclockwise direction: 1
         elif distance_left > distance_right:
-            orientation = -1  # Sentido horario: -1
+            orientation = -1  # Clockwise: -1
 
         return (avg_dev * orientation)
     return None
 
-# Calcula la intersección con el eje y (b) de la ecuación y = mx + b
-
-
+# Calculate the y-intercept (b) of the equation y = mx + b
 def intercept(line, m):
     if m == float('inf'):
-        return None  # Línea vertical, no tiene intersección en el eje y
+        return None  # Vertical line, has no intersection on the y axis
     x1, y1, _, _ = line[0]
     return y1 - m * x1
 
-# Calcula el valor de x dado un valor de y en la ecuación y = mx + b
-# o devuelve el valor constante de x si la línea es vertical
-
-
+# Calculates the value of x given a value of y in the equation y = mx + b
+# o returns the constant value of x if the line is vertical
 def x_at_y(m, b, y, vertical_x=None):
     if m == float('inf'):
-        return vertical_x  # Línea vertical, siempre tiene un x constante
+        return vertical_x  # Vertical line, always has a constant x
     return (y - b) / m
 
 
@@ -134,14 +130,13 @@ def get_distance_at_approx_x_point(x, y, depth_image, max_margin=5):
         return distance
 
     for margin in range(1, max_margin + 1):
-        # Verifica en las posiciones a la izquierda y a la derecha del punto
-        # (x, y)
+        # Check the positions to the left and right of the point (x, y)
         for dx in [margin, -margin]:
             distance = get_distance_at_point(x + dx, y, depth_image)
             if distance is not None and distance > 0:
                 return distance
 
-        # # Verifica en las posiciones adicionales alrededor del punto (x, y)
+        # # Check at the additional positions around the point (x, y)
         # for dx in range(1, margin):
         #     for dy in [margin, -margin]:
         #         distance = get_distance_at_point(x + dx, y + dy, depth_image)
@@ -158,28 +153,22 @@ def get_distance_at_approx_x_point(x, y, depth_image, max_margin=5):
 def get_distance_at_point(x, y, depth_image):
     x = math.floor(x)
     y = math.floor(y)
-    # Verifica si el punto está dentro de los límites de la imagen
+    # Check if the point is within the image boundaries
     if 0 <= x < depth_image.shape[1] and 0 <= y < depth_image.shape[0]:
-        # Obtiene el valor de distancia en el punto (x, y)
+        # Gets the distance value at the point (x, y)
         distance = depth_image[y, x]
         return distance
     return None
 
-# Determina si una línea es vertical dentro de un margen de error
-
-
+# Determines if a line is vertical within a margin of error
 def is_vertical(x1, y1, x2, y2, error_margin=15):
     return abs(x1 - x2) <= error_margin
 
-# Determina si una línea es horizontal dentro de un margen de error
-
-
+# Determines if a line is horizontal within a margin of error
 def is_horizontal(x1, y1, x2, y2, error_margin=15):
     return abs(y1 - y2) <= error_margin
 
-# Encuentra el punto más alto en una lista de líneas
-
-
+# Find the highest point in a list of lines
 def highest_point(lines):
     highest = None
     for line in lines:
@@ -190,15 +179,11 @@ def highest_point(lines):
             highest = (x2, y2)
     return highest
 
-# Calcula la distancia euclidiana entre dos puntos p1 y p2
-
-
+# Calculate the Euclidean distance between two points p1 and p2
 def distance(p1, p2):
     return np.linalg.norm(np.array(p1) - np.array(p2))
 
-# Calcula la pendiente de la línea
-
-
+# Calculate the slope of the line
 def slope(line):
     x1, y1, x2, y2 = line[0]
     if x2 == x1:
@@ -206,14 +191,12 @@ def slope(line):
     else:
         return (y2 - y1) / (x2 - x1)
 
-# Calcula la pendiente de la línea perpendicular
-
-
+# Calculate the slope of the perpendicular line
 def perpendicular_slope(m):
     if m == float('inf'):
-        return 0  # La línea perpendicular a una línea vertical es horizontal
+        return 0  # The line perpendicular to a vertical line is horizontal
     elif m == 0:
-        # La línea perpendicular a una línea horizontal es vertical
+        # The line perpendicular to a horizontal line is vertical
         return float('inf')
     else:
         return -1 / m
@@ -221,40 +204,38 @@ def perpendicular_slope(m):
 
 def calculate_angle_between_lines(m1, m2):
     if m1 == float('inf') or m2 == float('inf'):
-        # Caso donde una de las líneas es vertical
+        # Case where one of the lines is vertical
         if m1 == float('inf') and m2 == float('inf'):
-            return 0  # Las dos líneas son paralelas y verticales, ángulo es 0
+            return 0  # The two lines are parallel and vertical, angle is 0
         elif m1 == float('inf'):
-            # m1 es vertical, calcular ángulo con m2
+            # m1 is vertical, calculate angle with m2
             angle = math.degrees(math.atan(abs(m2)))
-            return 90 - angle  # Ángulo con respecto a una línea horizontal
+            return 90 - angle  # Angle with respect to a horizontal line
         else:
-            # m2 es vertical, calcular ángulo con m1
+            # m2 is vertical, calculate angle with m1
             angle = math.degrees(math.atan(abs(m1)))
-            return 90 - angle  # Ángulo con respecto a una línea horizontal
+            return 90 - angle  # Angle with respect to a horizontal line
     else:
-        # Caso general donde ninguna línea es vertical
+        # General case where no line is vertical
         if m1 * m2 == -1:
-            return 90  # Líneas perpendiculares, ángulo es 90 grados
+            return 90  # Perpendicular lines, angle is 90 degrees
         tan_theta = abs((m2 - m1) / (1 + m1 * m2))
         angle = math.degrees(math.atan(tan_theta))
         return angle
 
 
 def are_lines_about_120_degrees(m1, m2, error_margin=15):
-    # Calcula el ángulo entre las dos líneas
+    # Calculate the angle between the two lines
     angle = calculate_angle_between_lines(m1, m2)
     # print('angle', angle)
 
-    # Verifica si el ángulo es aproximadamente 120 grados
-    # Tambien se compara con 60 por si se esta tomando el menor angulo entre las rectas
-    # 60 es el angulo suplementario de 120
+    # Check if the angle is approximately 120 degrees
+    # It is also compared with 60 in case the smallest angle between the lines is being taken
+    # 60 is the supplementary angle of 120
     return abs(angle - 120) <= error_margin or abs(angle - 60) <= error_margin
 
-# Devuelve 3 lineas con aprox 120 grados entre ellas
-# Se queda con la terna con la linea vertical mas arriba que haya
-
-
+# Returns 3 lines with approx 120 degrees between them
+# Prefers the ones with the highest vertical line
 def y_inverted(lines):
     highest = None
     highest_y = float('inf')
@@ -284,9 +265,7 @@ def y_inverted(lines):
                     highest = (line1, line2, line3)
     return highest
 
-# Encuentra la intersección entre dos líneas representadas por (x1, y1, x2, y2)
-
-
+# Find the intersection between two lines represented by (x1, y1, x2, y2)
 def find_line_intersection(line1, line2, tolerance=0.1):
     x1, y1, x2, y2 = line1[0]
     x_1, y_1, x_2, y_2 = line2[0]
@@ -299,7 +278,7 @@ def find_line_intersection(line1, line2, tolerance=0.1):
 
     div = det(xdiff, ydiff)
     if abs(div) < tolerance:
-        return None  # Las líneas son casi paralelas o coincidentes
+        return None  # The lines are almost parallel or coincident
 
     d = (det((x1, y1), (x2, y2)), det((x_1, y_1), (x_2, y_2)))
     x = det(d, xdiff) / div
@@ -338,9 +317,9 @@ def determine_direction(rotorY, vertical_lines, margin_error=5):
     if abs(max_x_l - min_x_u) > margin_error and abs(min_x_l -
                                                      max_x_u) > margin_error:
         if max_x_l < min_x_u:
-            orientation = 1  # Sentido antihorario: 1
+            orientation = 1  # Counterclockwise direction: 1
         elif min_x_l > max_x_u:
-            orientation = -1  # Sentido horario: -1
+            orientation = -1  # Clockwise: -1
 
     return (avg_dev * orientation)
 
@@ -372,7 +351,7 @@ def findYShape(img, lines, img_name):
     if y_inverted_found:
         intersections = []
 
-        # Encuentra las intersecciones
+        # Find the intersections
         for i in range(len(y_inverted_found)):
             for j in range(i + 1, len(y_inverted_found)):
                 intersection = find_line_intersection(
@@ -380,10 +359,10 @@ def findYShape(img, lines, img_name):
                 if intersection:
                     intersections.append(intersection)
 
-        # Dibuja las líneas
+        # Draw the lines
         for line in y_inverted_found:
             x1, y1, x2, y2 = line[0]
-            # LINEAS Y INVERTIDA VERDE
+            # LINES Y INVERTED GREEN
             cv2.line(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
 
         maxX = 0
