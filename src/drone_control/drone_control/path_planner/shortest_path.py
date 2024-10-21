@@ -90,7 +90,7 @@ def shortest_path(start_node, sections: List[Section], end_node):
             if j == 0 or (points_to_sections[i] == points_to_sections[j]):
                 edges[i, j] = 0
             elif i == len(points) - 1 and end_node is not None:
-                edges[i, j] = 1000000       # infinito
+                edges[i, j] = 1000000       # infinite
             else:
                 edges[i, j] = dist(points[i], points[j])
     print(edges)
