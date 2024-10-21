@@ -43,7 +43,7 @@ def create_stl(windTurbine: WindTurbine=WindTurbine(3, 10, "turbine")):
                                 x[cc + 2 * k - 1][1],
                                 x[cc + 2 * k - 1][2] - m_s * np.sin(np.pi / 5)]
 
-        # Genera las facetas para un lado
+        # Generate facets for one side
         for k in range(facets_range):
             myfile.write("facet normal 0 1 0\n")
             myfile.write("outer loop\n")
@@ -62,7 +62,7 @@ def create_stl(windTurbine: WindTurbine=WindTurbine(3, 10, "turbine")):
             myfile.write("endloop\n")
             myfile.write("endfacet\n")
 
-        # Genera puntos para el otro lado de la turbina
+        # Generate points for the other side of the turbine
         cc = 500
         x[cc] = [-w / 2, b_t / 2, t_c]
         x[cc + 1] = [-w / 2, b_t / 2, t_c - b_w]
@@ -93,7 +93,7 @@ def create_stl(windTurbine: WindTurbine=WindTurbine(3, 10, "turbine")):
             myfile.write("endloop\n")
             myfile.write("endfacet\n")
 
-        # Genera puntos para la parte vertical de la turbina
+        # Generate points for the vertical part of the turbine
         cc = 0
         x[cc] = [-w / 2, b_t / 2, t_c]
         x[cc + 1] = [w / 2, b_t / 2, t_c]

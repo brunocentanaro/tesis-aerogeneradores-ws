@@ -55,7 +55,7 @@ class RegistrationState(InspectionState):
             percentageInX, percentageInY, distanceAtCentroid = map(
                 float, msg.data.split(","))
             if (self.inAnOperation):
-                # self.get_logger().info("En una operación, no se realizará corrección")
+                # self.get_logger().info("In an operation, no correction will be made")
                 return
 
             self.lastNeededPercentX.append(percentageInX)
@@ -94,7 +94,7 @@ class RegistrationState(InspectionState):
                     self.correctDronePositionPublisher.publish(
                         String(data=corrected_position_msg))
                     self.get_logger().info(
-                        f"Vector de corrección publicado: {corrected_position_msg}")
+                        f"Correction vector published: {corrected_position_msg}")
                     self.inAnOperation = True
                     self.lastNeededDistance = []
                     self.lastNeededPercentX = []
@@ -103,7 +103,7 @@ class RegistrationState(InspectionState):
                     self.reEnableProcessingWaypointsPublisher.publish(
                         String(data=""))
         except ValueError:
-            self.get_logger().error("Datos recibidos inválidos")
+            self.get_logger().error("Invalid data received")
             return
 
     def waypoint_reached_callback(self, msg):
