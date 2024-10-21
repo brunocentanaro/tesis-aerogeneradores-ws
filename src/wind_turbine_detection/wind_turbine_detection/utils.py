@@ -31,19 +31,29 @@ def preproces_and_hough(image):
     return lines
 
 
-def determine_direction_with_depth(y_inverted_found, depth_image):
-    vertical_edge = None
-    left_edge = None
-    right_edge = None
+def determine_direction_with_depth(y_inverted_found, depth_image, angle_rotated=None, epsilon=0.1):
+    vertical_edge, left_edge, right_edge = None, None, None
+
+    if angle_rotated is not None:
+        m_alpha = math.tan(math.radians(90 - angle_rotated))
 
     for line in y_inverted_found:
         m = slope(line)
-        if m == float('inf'):
-            vertical_edge = line
-        elif m < 0:
-            left_edge = line
+        
+        if angle_rotated:
+            if abs(m - m_alpha) < epsilon:
+                vertical_edge = line
+            elif m < 0:
+                left_edge = line
+            else:
+                right_edge = line
         else:
-            right_edge = line
+            if m == float('inf'):
+                vertical_edge = line
+            elif m < 0:
+                left_edge = line
+            else:
+                right_edge = line
 
     if vertical_edge is None or left_edge is None or right_edge is None:
         return None
