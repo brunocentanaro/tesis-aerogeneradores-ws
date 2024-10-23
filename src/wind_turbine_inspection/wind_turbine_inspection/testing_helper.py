@@ -91,7 +91,6 @@ class TestingHelper(Node):
                 self.testResult.initSimTime = msg.clock.sec
             else:
                 self.testResult.endSimTime = msg.clock.sec
-            self.get_logger().info(f"clock_callback: {msg.clock.sec}")
 
     def state_callback(self, msg):
         self.get_logger().info(f"State: {msg.data}")
