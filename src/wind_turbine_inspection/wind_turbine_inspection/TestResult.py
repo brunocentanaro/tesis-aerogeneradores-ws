@@ -14,6 +14,8 @@ class TestResult:
         self.corrections = []
         self.isCompleted = False
         self.positionErrors = []
+        self.initSimTime = -1
+        self.endSimTime = 0
 
     def addBatteryUsage(self, batteryUsage):
         self.batteryUsage.append(batteryUsage)
@@ -54,6 +56,9 @@ class TestResult:
             'localPositions': self.localPositions,
             'corrections': self.corrections,
             'positionErrors': self.positionErrors,
+            'initSimTime': self.initSimTime,
+            'endSimTime' : self.endSimTime,
+            'simDuration' : self.endSimTime - self.initSimTime
         }
 
         timestamp_str = time.strftime('%Y-%m-%d_%H-%M-%S')
