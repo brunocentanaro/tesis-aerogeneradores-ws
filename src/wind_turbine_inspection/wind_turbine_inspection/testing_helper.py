@@ -7,6 +7,7 @@ from wind_turbine_inspection.states.OrthogonalAlignmentState import OrthogonalAl
 from wind_turbine_inspection.states.ReturnHomeState import ReturnHomeState
 from wind_turbine_inspection.states.TakeoffState import TakeoffState
 from px4_msgs.msg import VehicleLocalPosition, TrajectorySetpoint, BatteryStatus
+from rosgraph_msgs.msg import Clock
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
 from wind_turbine_inspection.TestResult import TestResult
 from std_msgs.msg import String
@@ -20,8 +21,8 @@ class TestingHelper(Node):
             history=QoSHistoryPolicy.RMW_QOS_POLICY_HISTORY_KEEP_LAST,
             depth=1
         )
-        self.startMeasurementState = RegistrationState
-        self.endMeasurementState = ReturnHomeState
+        self.startMeasurementState = TakeoffState
+        self.endMeasurementState = RegistrationState
 
         self.local_position_sub = self.create_subscription(
             VehicleLocalPosition,
@@ -53,6 +54,11 @@ class TestingHelper(Node):
             '/drone_control/position_error',
             self.position_error_callback,
             10)
+        self.clock_sub = self.create_subscription(
+            Clock,
+            '/clock',
+            self.clock_callback,
+            10)
         self.testResult = None
 
     def position_error_callback(self, msg):
@@ -78,6 +84,13 @@ class TestingHelper(Node):
     def correction_setpoint_callback(self, msg):
         if self.testResult is not None and not self.testResult.isCompleted:
             self.testResult.addCorrection(msg.data)
+
+    def clock_callback(self, msg):
+        if self.testResult is not None and not self.testResult.isCompleted:
+            if self.testResult.initSimTime == -1:
+                self.testResult.initSimTime = msg.clock.sec
+            else:
+                self.testResult.endSimTime = msg.clock.sec
 
     def state_callback(self, msg):
         self.get_logger().info(f"State: {msg.data}")
