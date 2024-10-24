@@ -31,29 +31,38 @@ def preproces_and_hough(image):
     return lines
 
 
-def determine_direction_with_depth(y_inverted_found, depth_image, angle_rotated=None, epsilon=0.1):
+def determine_direction_with_depth(y_inverted_found, depth_image):
     vertical_edge, left_edge, right_edge = None, None, None
-
-    if angle_rotated is not None:
-        m_alpha = math.tan(math.radians(90 - angle_rotated))
+    positives = []
+    negatives = []
 
     for line in y_inverted_found:
         m = slope(line)
-        
-        if angle_rotated:
-            if abs(m - m_alpha) < epsilon:
-                vertical_edge = line
-            elif m < 0:
-                left_edge = line
-            else:
-                right_edge = line
+        if m == float('inf'):
+            vertical_edge = line
+        elif m < 0:
+            negatives.append((line, abs(m))) # Save line and absolute slope
         else:
-            if m == float('inf'):
-                vertical_edge = line
-            elif m < 0:
+            positives.append((line, abs(m))) # Save line and absolute slope
+
+    # If there is no strictly vertical line (infinite slope), look for the most vertical one
+    if vertical_edge is None:
+        all_lines = positives + negatives
+        # Order for abs(slope), the more vertical one should be the first
+        all_lines_sorted = sorted(all_lines, key=lambda x: x[1], reverse=True)
+        vertical_edge = all_lines_sorted[0][0]
+        
+        for line, m in all_lines_sorted[1:]:
+            if line in [l[0] for l in negatives]:
                 left_edge = line
             else:
                 right_edge = line
+    # If you already have a strictly vertical line, you only need to assign the other two
+    else:
+        if negatives:
+            left_edge = negatives[0][0] # The only line with a negative slope will be the left
+        if positives:
+            right_edge = positives[0][0] # The only line with a positive slope will be the right
 
     if vertical_edge is None or left_edge is None or right_edge is None:
         return None
