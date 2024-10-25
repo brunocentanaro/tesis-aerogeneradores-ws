@@ -57,8 +57,8 @@ class TestResult:
             'corrections': self.corrections,
             'positionErrors': self.positionErrors,
             'initSimTime': self.initSimTime,
-            'endSimTime' : self.endSimTime,
-            'simDuration' : self.endSimTime - self.initSimTime
+            'endSimTime': self.endSimTime,
+            'simDuration': self.endSimTime - self.initSimTime
         }
 
         timestamp_str = time.strftime('%Y-%m-%d_%H-%M-%S')
