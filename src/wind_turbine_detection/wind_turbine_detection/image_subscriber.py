@@ -10,7 +10,8 @@ from enum import Enum
 from wind_turbine_detection.utils import *
 
 MODE_ALIGNMENT_LIDAR_THRESHOLD = 30
-MODE_INSPECTION_LIDAR_THRESHOLD = 4
+MODE_BACK_INSPECTION_LIDAR_THRESHOLD = 6
+MODE_FRONT_INSPECTION_LIDAR_THRESHOLD = 3
 
 
 class ImageRecognitionState(Enum):
@@ -122,7 +123,7 @@ class ImageSubscriber(Node):
             threshold_value = MODE_ALIGNMENT_LIDAR_THRESHOLD
             useNearThreshold = True
         elif self.imageRecognitionState == ImageRecognitionState.INSPECTION_FROM_FRONT or self.imageRecognitionState == ImageRecognitionState.INSPECTION_FROM_BACK:
-            threshold_value = MODE_INSPECTION_LIDAR_THRESHOLD
+            threshold_value = MODE_FRONT_INSPECTION_LIDAR_THRESHOLD if self.imageRecognitionState == ImageRecognitionState.INSPECTION_FROM_FRONT else MODE_BACK_INSPECTION_LIDAR_THRESHOLD
             useNearThreshold = self.imageRecognitionState == ImageRecognitionState.INSPECTION_FROM_FRONT
         else:
             return
