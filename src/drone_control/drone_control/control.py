@@ -13,6 +13,7 @@ NEAR_WAYPOINT_THRESHOLD = 0.8
 EMPTY_MESSAGE = ""
 BLADE_COMPLETED_MESSAGE = "bladeCompleted"
 BLADE_START_MESSAGE = "bladeStart"
+RESUME_PROCESSING_WAYPOINTS_THRESHOLD = 20
 
 
 class OffboardControl(Node):
@@ -46,6 +47,7 @@ class OffboardControl(Node):
         self.initSubscribers()
         self.startedTurbineInspection = False
         self.inspectingBlade = False
+        self.reEnableProcessingWaypointsTimer = None
 
     def initPublishers(self):
         self.offboard_control_mode_publisher = self.create_publisher(
@@ -124,14 +126,27 @@ class OffboardControl(Node):
             VehicleCommand.VEHICLE_CMD_NAV_RETURN_TO_LAUNCH
         )
 
+    def destroyExistingTimer(self):
+        if (self.reEnableProcessingWaypointsTimer):
+            self.reEnableProcessingWaypointsTimer.destroy()
+
     def reEnableProcessingWaypointsCallback(self, msg):
         self.blockNewWaypoints = False
+        self.destroyExistingTimer()
+
+    def reEnableProcessingWaypointsTimerCallback(self):
+        self.get_logger().info('Re-enabling processing waypoints due to timer')
+        self.blockNewWaypoints = False
+        self.destroyExistingTimer()
 
     def correctDronePositionCallback(self, msg):
-        self.blockNewWaypoints = True
         try:
             n, e, d, yaw = map(float, msg.data.split(','))
+            self.blockNewWaypoints = True
             self.positionCorrectionSetpoint = (n, e, d, yaw)
+            self.destroyExistingTimer()
+            self.reEnableProcessingWaypointsTimer = self.create_timer(
+                RESUME_PROCESSING_WAYPOINTS_THRESHOLD, self.reEnableProcessingWaypointsTimerCallback)
         except ValueError:
             self.get_logger().error('Invalid waypoint format. Expected format: "x,y,z,yaw"')
 
