@@ -21,8 +21,8 @@ class TestingHelper(Node):
             history=QoSHistoryPolicy.RMW_QOS_POLICY_HISTORY_KEEP_LAST,
             depth=1
         )
-        self.startMeasurementState = TakeoffState
-        self.endMeasurementState = RegistrationState
+        self.startMeasurementState = RegistrationState
+        self.endMeasurementState = ReturnHomeState
 
         self.local_position_sub = self.create_subscription(
             VehicleLocalPosition,
