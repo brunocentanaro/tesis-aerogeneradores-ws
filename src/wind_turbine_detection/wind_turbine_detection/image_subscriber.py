@@ -170,7 +170,7 @@ class ImageSubscriber(Node):
                     rotorX, rotorY, cv_image_filtered)
             else:
                 distanceToRotor = None
-            if y_inverted_found:
+            if y_inverted_found is not None:
                 avg_dev_with_sign = determine_direction_with_depth(
                     y_inverted_found, cv_image_filtered)
             else:

@@ -53,15 +53,16 @@ def determine_direction_with_depth(y_inverted_found, depth_image):
         vertical_edge = all_lines_sorted[0][0]
         
         for line, m in all_lines_sorted[1:]:
-            if line in [l[0] for l in negatives]:
+            # Check if line exists in the negatives list based on identity
+            if any((line is l[0]) for l in negatives):
                 left_edge = line
             else:
                 right_edge = line
     # If you already have a strictly vertical line, you only need to assign the other two
     else:
-        if negatives:
+        if len(negatives)>0:
             left_edge = negatives[0][0] # The only line with a negative slope will be the left
-        if positives:
+        if len(positives)>0:
             right_edge = positives[0][0] # The only line with a positive slope will be the right
 
     if vertical_edge is None or left_edge is None or right_edge is None:
@@ -357,7 +358,7 @@ def findYShape(img, lines, img_name):
     y_inverted_found = y_inverted(lines)
 
     # Draw the detected lines on the image
-    if y_inverted_found:
+    if y_inverted_found is not None:
         intersections = []
 
         # Find the intersections
