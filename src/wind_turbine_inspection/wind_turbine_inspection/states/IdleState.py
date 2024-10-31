@@ -3,7 +3,7 @@ from std_srvs.srv import Trigger
 
 
 class IdleState(InspectionState):
-    def __init__(self, state_machine):
+    def __init__(self, state_machine, completedFirstRound=False):
         super().__init__('idle_state', WindTurbineInspectionStage.IDLE, state_machine)
         self.declare_parameter('mission_param', 0)
         self.declare_parameter('front_inspection', 1)
@@ -21,6 +21,8 @@ class IdleState(InspectionState):
             Trigger,
             'comenzar_inspeccion',
             self.comenzar_inspeccion_callback)
+        if completedFirstRound:
+            self.advance_to_next_state()
 
     def comenzar_inspeccion_callback(self, request, response):
         self.advance_to_next_state()

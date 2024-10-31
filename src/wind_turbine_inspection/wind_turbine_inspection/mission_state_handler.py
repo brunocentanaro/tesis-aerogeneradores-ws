@@ -52,7 +52,7 @@ class WindTurbineInspectionStateMachine(Node):
                 self.current_state = ReturnHomeState(self)
             else:
                 self.completedFirstRound = True
-                self.current_state = IdleState(self)
+                self.current_state = IdleState(self, True)
 
         self.current_state_publisher.publish(
             String(data=type(self.current_state).__name__))
