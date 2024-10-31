@@ -52,8 +52,6 @@ class TestResult:
             'stdDevError': stdDevError,
             'duration': self.duration,
             'batteryUsage': self.batteryUsage,
-            'setPoints': self.setPoints,
-            'localPositions': self.localPositions,
             'corrections': self.corrections,
             'positionErrors': self.positionErrors,
             'initSimTime': self.initSimTime,
