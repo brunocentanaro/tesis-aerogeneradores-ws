@@ -32,6 +32,7 @@ setup(
             'controlV2 = wind_turbine_inspection.controlV2:main',
             'mission_state_handler = wind_turbine_inspection.mission_state_handler:main',
             'testing_helper = wind_turbine_inspection.testing_helper:main',
+            'camera_handler = wind_turbine_inspection.camera_handler:main',
         ],
     },
 )
