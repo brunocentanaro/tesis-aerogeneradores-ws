@@ -124,6 +124,9 @@ class RegistrationState(InspectionState):
             self.get_logger().info("Waypoint reached: bladeStart")
             self.inAnOperation = False
             return
+
+        if (msg.data != "windTurbineCompleted"):
+            return
         self.reEnableProcessingWaypointsPublisher.publish(
             String(data=""))
         self.changeImageSubscriberModePublisher.publish(String(data="0"))

@@ -13,7 +13,9 @@ NEAR_WAYPOINT_THRESHOLD = 0.8
 EMPTY_MESSAGE = ""
 BLADE_COMPLETED_MESSAGE = "bladeCompleted"
 BLADE_START_MESSAGE = "bladeStart"
+BLADE_TO_BE_COMPLETED_MESSAGE = "bladeToBeCompleted"
 RESUME_PROCESSING_WAYPOINTS_THRESHOLD = 20
+WIND_TURBINE_COMPLETED_MESSAGE = "windTurbineCompleted"
 
 
 class OffboardControl(Node):
@@ -369,6 +371,15 @@ class OffboardControl(Node):
                 if previous_group is not None and group_id == previous_group:
                     newIntermediateWaypoints = self.addIntermediateWaypoints(
                         xToUse, yToUse, zToUse, 0.0)
+
+                    amountOfWaypointsForBlade = len(newIntermediateWaypoints)
+                    if (amountOfWaypointsForBlade > 10):
+                        notifyBladeToBeCompleted = amountOfWaypointsForBlade * 0.97
+                        waypointToNotify = newIntermediateWaypoints[int(
+                            notifyBladeToBeCompleted)]
+                        newIntermediateWaypoints[int(
+                            notifyBladeToBeCompleted)] = (waypointToNotify[0], waypointToNotify[1], waypointToNotify[2], waypointToNotify[3], BLADE_TO_BE_COMPLETED_MESSAGE)
+
                     lastIntermediateWaypoints = newIntermediateWaypoints[-1]
                     newIntermediateWaypoints[-1] = (
                         lastIntermediateWaypoints[0], lastIntermediateWaypoints[1], lastIntermediateWaypoints[2], lastIntermediateWaypoints[3], BLADE_COMPLETED_MESSAGE)
@@ -382,7 +393,7 @@ class OffboardControl(Node):
             self.lastInspectionLocation = (x, y, z)
             latestWaypoint = newWaypointsGroup[-1]
             newWaypointsGroup[-1] = (latestWaypoint[0], latestWaypoint[1],
-                                     latestWaypoint[2], latestWaypoint[3], 'wind turbine')
+                                     latestWaypoint[2], latestWaypoint[3], WIND_TURBINE_COMPLETED_MESSAGE)
             self.wayPointsGroupedForHeading.append(newWaypointsGroup)
         except ValueError:
             self.get_logger().error('Invalid waypoint format. Expected format: "x,y,z"')
