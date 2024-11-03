@@ -1,10 +1,20 @@
 from wind_turbine_inspection.states.base import InspectionState, WindTurbineInspectionStage
 from std_srvs.srv import Trigger
+from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSDurabilityPolicy
+from px4_msgs.msg import VehicleLocalPosition, FailsafeFlags
+import rclpy
 
 
 class IdleState(InspectionState):
     def __init__(self, state_machine):
         super().__init__('idle_state', WindTurbineInspectionStage.IDLE, state_machine)
+        qos_profile = QoSProfile(
+            reliability=QoSReliabilityPolicy.BEST_EFFORT,
+            durability=QoSDurabilityPolicy.TRANSIENT_LOCAL,
+            history=rclpy.qos.QoSHistoryPolicy.KEEP_LAST,
+            depth=100
+        )
+
         self.declare_parameter('mission_param', 0)
         self.declare_parameter('front_inspection', 1)
         mission_param = self.get_parameter(
@@ -21,8 +31,44 @@ class IdleState(InspectionState):
             Trigger,
             'comenzar_inspeccion',
             self.comenzar_inspeccion_callback)
+        self.invalidFlags = None
+
+        self.failsafeSub = self.create_subscription(
+            FailsafeFlags,
+            '/fmu/out/failsafe_flags',
+            self.failsafeFlagsCallback,
+            qos_profile)
+
+    def failsafeFlagsCallback(self, msg):
+        checks = [
+            'angular_velocity_invalid',
+            'attitude_invalid',
+            'local_position_invalid',
+            'global_position_invalid',
+            'offboard_control_signal_lost',
+            'home_position_invalid',
+            'battery_low_remaining_time',
+            'battery_unhealthy',
+            'local_position_accuracy_low',
+            'fd_critical_failure',
+            'fd_imbalanced_prop',
+            'fd_motor_failure'
+        ]
+        self.invalidFlags = []
+        for check in checks:
+            if getattr(msg, check):
+                self.invalidFlags.append(check)
 
     def comenzar_inspeccion_callback(self, request, response):
+        if self.invalidFlags is None:
+            response.success = False
+            response.message = "Status unknown"
+            return response
+        if len(self.invalidFlags) > 0:
+            response.success = False
+            response.message = f"Invalid flags: {self.invalidFlags}"
+            return response
+
         self.advance_to_next_state()
         response.success = True
         response.message = "Inspección iniciada"
