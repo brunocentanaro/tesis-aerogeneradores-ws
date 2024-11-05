@@ -7,5 +7,6 @@ windTurbineTypeAndLocation = [
         },
         "rotorDiameter": 5,
         "bladeLength": 39,
+        "distanceFromGpsToRotor": 10
     },
 ]
