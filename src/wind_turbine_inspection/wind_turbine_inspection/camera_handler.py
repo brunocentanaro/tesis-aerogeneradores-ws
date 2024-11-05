@@ -19,9 +19,16 @@ HORIZONTAL_PHOTO_DISTANCE_PERFECT = math.sin(
 DISTANCE_PER_PICTURE = HORIZONTAL_PHOTO_DISTANCE_PERFECT * 0.6
 
 
+ENABLED = True
+
+
 class CameraHandler(Node):
     def __init__(self):
         super().__init__('camera_handler')
+        if not ENABLED:
+            self.get_logger().info('Camera handler disabled')
+            return
+
         qos_profile = QoSProfile(
             reliability=QoSReliabilityPolicy.RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT,
             history=QoSHistoryPolicy.RMW_QOS_POLICY_HISTORY_KEEP_LAST,
