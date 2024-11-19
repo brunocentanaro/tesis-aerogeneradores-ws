@@ -14,7 +14,6 @@ POINTS_NEEDED = 50
 MIN_DISTANCE_BACK = 19
 MAX_DISTANCE_BACK = 22
 
-
 class RegistrationState(InspectionState):
     def __init__(self, state_machine):
         super().__init__(

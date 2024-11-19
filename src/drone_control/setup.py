@@ -34,7 +34,7 @@ setup(
     zip_safe=True,
     maintainer='bruno',
     maintainer_email='bcentanaro@gmail.com',
-    description='TODO: Package description',
+    description='Drone controller, gimbal stabilizer and path planner',
     license='TODO: License declaration',
     tests_require=['pytest'],
     entry_points={
