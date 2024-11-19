@@ -9,17 +9,17 @@ from std_msgs.msg import String
 from enum import Enum
 from wind_turbine_detection.utils import *
 
+# Define threshold constants for different modes
 MODE_ALIGNMENT_LIDAR_THRESHOLD = 30
 MODE_BACK_INSPECTION_LIDAR_THRESHOLD = 6
 MODE_FRONT_INSPECTION_LIDAR_THRESHOLD = 3
 
-
+# Enum to define the different states of image recognition
 class ImageRecognitionState(Enum):
     OFF = 0
     ALIGNMENT = 1
     INSPECTION_FROM_FRONT = 2
     INSPECTION_FROM_BACK = 3
-
 
 class ImageSubscriber(Node):
     def __init__(self):
@@ -34,16 +34,19 @@ class ImageSubscriber(Node):
             'depth_camera',
             self.depth_listener_callback,
             10)
-        self.br = CvBridge()
-        self.angleToHaveWTCenteredOnImagePublisher = self.create_publisher(
-            String, 'angle_to_have_wt_centered_on_image', 10)
-        self.imageRecognitionState = ImageRecognitionState.OFF
         self.changeModeSubscriber = self.create_subscription(
             String, 'change_mode', self.change_mode_callback, 10)
+        
+        # Create CvBridge instances to convert ROS Image messages to OpenCV format
+        self.br = CvBridge()
+        self.imageBr = CvBridge()
+
+        self.angleToHaveWTCenteredOnImagePublisher = self.create_publisher(
+            String, 'angle_to_have_wt_centered_on_image', 10)
         self.inspection_distances_publisher = self.create_publisher(
             String, 'inspection_distances', 10)
 
-        self.imageBr = CvBridge()
+        self.imageRecognitionState = ImageRecognitionState.OFF
 
     def change_mode_callback(self, msg):
         try:
@@ -55,22 +58,22 @@ class ImageSubscriber(Node):
 
     def listener_callback(self, data):
         current_frame = self.imageBr.imgmsg_to_cv2(
-            data, desired_encoding="bgr8")
+            data, desired_encoding="bgr8") # Convert image to OpenCV format
         image = current_frame
         img = image
-        copy_img = np.copy(img)
-
-        # lines = preproces_and_hough(img)
-
-        # if lines is None:
-        #     return
-
-        # for line in lines:
-        #     x1, y1, x2, y2 = line[0]
-        #     cv2.line(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
 
         cv2.imshow('Camera view', img)
         cv2.waitKey(1)
+
+        # Commented-out code for detecting Y-shape in RGB images
+
+        # copy_img = np.copy(img)
+        # lines = preproces_and_hough(img)
+        # if lines is None:
+        #     return
+        # for line in lines:
+        #     x1, y1, x2, y2 = line[0]
+        #     cv2.line(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
         # y_inverted_found, rotorX, rotorY, angle, intersectionsAverageY, vertical_lines = findYShape(
         #     copy_img, lines, "Y shape from rgb image")
         # avg_dev_with_sign = determine_direction(rotorY, vertical_lines)
@@ -78,6 +81,7 @@ class ImageSubscriber(Node):
         #     self.angleToHaveWTCenteredOnImagePublisher.publish(
         #         String(data=f"{angle},{intersectionsAverageY},{avg_dev_with_sign},0,0"))
 
+    # Filters and normalizes a depth image and applies a color map
     def prepare_image(self, data, threshold_value, use_closest=True):
         cv_image = self.br.imgmsg_to_cv2(data, desired_encoding='passthrough')
         cv_image = np.nan_to_num(cv_image, nan=0.0, posinf=0.0, neginf=0.0)

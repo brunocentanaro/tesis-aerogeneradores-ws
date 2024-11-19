@@ -4,7 +4,6 @@ import numpy as np
 from itertools import combinations
 from wind_turbine_detection.constants import CAMERA_FOV
 
-
 def preproces_and_hough(image):
     # Convert to grayscale
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -29,7 +28,6 @@ def preproces_and_hough(image):
     )
 
     return lines
-
 
 def determine_direction_with_depth(y_inverted_found, depth_image):
     vertical_edge, left_edge, right_edge = None, None, None
