@@ -12,13 +12,11 @@ MIN_DISTANCE_FRONT_INSP = 10
 MIN_DISTANCE_BACK_INSP = 15
 ORTHOGONAL_ERROR_THRESHOLD = 0.5
 
-
 class AlignmentSubstate(Enum):
     ALIGN_VERTICAL = 1
     ALIGN_HORIZONTAL = 2
     BECOME_ORTHOGONAL = 3
     INTERMEDIATE_APPROACH = 4
-
 
 class OrthogonalAlignmentState(InspectionState):
     def __init__(self, state_machine):

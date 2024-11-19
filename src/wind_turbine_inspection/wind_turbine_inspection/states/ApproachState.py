@@ -5,7 +5,6 @@ import math
 
 CAMERA_FOV = 1.274
 
-
 class ApproachState(InspectionState):
     def __init__(self, state_machine):
         super().__init__(

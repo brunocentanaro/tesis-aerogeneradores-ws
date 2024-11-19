@@ -1,18 +1,20 @@
 import numpy as np
 import os
 
+# Class representing a wind turbine with rotor diameter, blade length, and path to the STL file
 class WindTurbine:
     def __init__(self, rotor_diameter, blade_length, stl_path):
-        self.rotor_diameter = rotor_diameter
-        self.blade_length = blade_length
-        self.stl_path = stl_path
+        self.rotor_diameter = rotor_diameter  # Diameter of the rotor
+        self.blade_length = blade_length      # Length of the blade
+        self.stl_path = stl_path              # Path to save the STL file
 
+# Function to create an STL file for a wind turbine
 def create_stl(windTurbine: WindTurbine=WindTurbine(3, 10, "turbine")):
-    w = windTurbine.rotor_diameter      # center(hub) width, affects vertical blade width
-    b_w = w                             # blade width
-    b_l = windTurbine.blade_length      # blade length
-    b_t = 0                             # blade thickness
-    t_c = w/2                           # 
+    w = windTurbine.rotor_diameter      # Center(hub) width, affects vertical blade width
+    b_w = w                             # Blade width
+    b_l = windTurbine.blade_length      # Blade length
+    b_t = 0                             # Blade thickness
+    t_c = w / 2                         
 
     m_s = 1.5
     facets_range = int(np.ceil(b_l / m_s))

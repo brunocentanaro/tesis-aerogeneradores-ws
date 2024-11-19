@@ -21,6 +21,7 @@ WIND_TURBINE_COMPLETED_MESSAGE = "windTurbineCompleted"
 class OffboardControl(Node):
     def __init__(self):
         super().__init__('offboard_control')
+        # Initialize attributes for setpoints, waypoints, and flags
         self.previous_setpoint = [0.0, 0.0, 0.0]
         self.current_setpoint = [0.0, 0.0, 0.0]
         self.currentSetpointEndSpeed = [0.0, 0.0, 0.0]
@@ -32,24 +33,24 @@ class OffboardControl(Node):
         self.nearTicker = 0
         self.maxSpeed = 1 / 9
         self.shouldArmAndTakeoff = False
-        self.inTakeoffProcedure = False
         self.takeOffWaypoint = None
-
         self.positionCorrectionSetpoint = None
-        self.timer = self.create_timer(0.1, self.timer_callback)
-        self.errorTimer = self.create_timer(1 / 2, self.error_timer_callback)
-
         self.currentHeading = 0.0
         self.lastInspectionLocation = (0, 0, 0)
         self.wayPointsGroupedForHeading = []
         self.inOffBoardControlMode = True
-
         self.blockNewWaypoints = False
-        self.initPublishers()
-        self.initSubscribers()
         self.startedTurbineInspection = False
         self.inspectingBlade = False
         self.reEnableProcessingWaypointsTimer = None
+
+        # Create timers for periodic callbacks
+        self.timer = self.create_timer(0.1, self.timer_callback)
+        self.errorTimer = self.create_timer(1 / 2, self.error_timer_callback)
+
+        # Initialize publishers and subscribers
+        self.initPublishers()
+        self.initSubscribers()
 
     def initPublishers(self):
         self.offboard_control_mode_publisher = self.create_publisher(
@@ -118,6 +119,7 @@ class OffboardControl(Node):
         self.goHomeSubscriber = self.create_subscription(
             String, 'go_home', self.goHomeCallback, 10)
 
+    # Callback for 'go_home' message to clear waypoints and return to launch position
     def goHomeCallback(self, msg):
         self.wayPointsStack.clear()
         self.wayPointsGroupedForHeading.clear()

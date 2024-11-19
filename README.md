@@ -207,7 +207,7 @@ ya que de otra manera PX4 no los reconoce para usar en el comando.
 
 ## Nodos/modulos relevantes
 
-A continueción se describen los nodos o modulos más relevantes.
+A continuación se describen los nodos o modulos más relevantes.
 
 **drone_control/shortest_path**:
 Es un módulo que genera un modelo STL de una turbina eólica y calcula la trayectoria más corta desde una posición inicial hasta una final, teniendo en cuenta una distancia de seguridad.

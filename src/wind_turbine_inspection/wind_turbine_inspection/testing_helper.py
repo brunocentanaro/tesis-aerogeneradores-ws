@@ -12,7 +12,6 @@ from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
 from wind_turbine_inspection.TestResult import TestResult
 from std_msgs.msg import String
 
-
 class TestingHelper(Node):
     def __init__(self):
         super().__init__('testing_helper')

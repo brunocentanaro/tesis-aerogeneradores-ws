@@ -4,7 +4,6 @@ from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSDurabilityPolicy
 from px4_msgs.msg import VehicleLocalPosition, FailsafeFlags
 import rclpy
 
-
 class IdleState(InspectionState):
     def __init__(self, state_machine):
         super().__init__('idle_state', WindTurbineInspectionStage.IDLE, state_machine)

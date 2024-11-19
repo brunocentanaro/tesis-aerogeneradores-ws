@@ -18,9 +18,7 @@ HORIZONTAL_PHOTO_DISTANCE_PERFECT = math.sin(
     CAMERA_FOV / 2) * MIN_DISTANCE_TO_TURBINE * 2
 DISTANCE_PER_PICTURE = HORIZONTAL_PHOTO_DISTANCE_PERFECT * 0.6
 
-
 ENABLED = True
-
 
 class CameraHandler(Node):
     def __init__(self):
@@ -100,14 +98,12 @@ class CameraHandler(Node):
         else:
             print("No hay ningún frame disponible para guardar.")
 
-
 def main(args=None):
     rclpy.init(args=args)
     camera_handler = CameraHandler()
     rclpy.spin(camera_handler)
     camera_handler.destroy_node()
     rclpy.shutdown()
-
 
 if __name__ == '__main__':
     main()
