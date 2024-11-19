@@ -4,7 +4,6 @@ import os
 from px4_msgs.msg import VehicleLocalPosition, TrajectorySetpoint
 import numpy as np
 
-
 class TestResult:
     def __init__(self):
         self.initTimestamp = time.time()
@@ -68,7 +67,6 @@ class TestResult:
         absolute_path = os.path.abspath(filename)
         log.info(f"Test data saved to {absolute_path}")
 
-
 class CustomJSONEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, TrajectorySetpoint):
@@ -84,7 +82,6 @@ class CustomJSONEncoder(json.JSONEncoder):
         else:
             return super().default(obj)
 
-
 def localPositionToJSON(localPositionMsg):
     return {
         'n': float(localPositionMsg.x),
@@ -94,7 +91,6 @@ def localPositionToJSON(localPositionMsg):
         've': float(localPositionMsg.vy),
         'vd': float(localPositionMsg.vz)
     }
-
 
 def trajectorySetpointToJSON(trajectorySetpointMsg):
     return {
