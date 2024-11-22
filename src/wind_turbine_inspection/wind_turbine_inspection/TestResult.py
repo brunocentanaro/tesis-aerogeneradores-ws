@@ -58,9 +58,9 @@ class TestResult:
             'simDuration': self.endSimTime - self.initSimTime
         }
 
+        # Save the test results to a timestamped JSON file
         timestamp_str = time.strftime('%Y-%m-%d_%H-%M-%S')
         filename = f"test_result_{timestamp_str}.json"
-
         with open(filename, 'w') as f:
             json.dump(data, f, indent=4, cls=CustomJSONEncoder)
 

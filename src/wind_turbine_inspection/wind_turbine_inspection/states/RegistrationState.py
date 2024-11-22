@@ -8,9 +8,9 @@ X_THRESHOLD = 0.1
 desired_movement_value_x = 4
 desired_movement_value_y = 2.5
 desired_movement_value_z = 0.1
+POINTS_NEEDED = 50
 MIN_DISTANCE_FRONT = 8
 MAX_DISTANCE_FRONT = 11
-POINTS_NEEDED = 50
 MIN_DISTANCE_BACK = 19
 MAX_DISTANCE_BACK = 22
 
@@ -73,6 +73,7 @@ class RegistrationState(InspectionState):
                 medianDistance = np.median(self.lastNeededDistance)
                 correction_vector = [0, 0, 0, 0]  # [north, east, down, yaw]
 
+                # Compute corrections based on thresholds
                 if medianX < X_THRESHOLD:
                     correction_vector[1] = -desired_movement_value_x
                 elif medianX > 1 - X_THRESHOLD:
@@ -88,6 +89,7 @@ class RegistrationState(InspectionState):
                         self.MIN_DISTANCE + self.MAX_DISTANCE) / 2
                     correction_vector[0] = medianDistance - perfectDistance
 
+                # Publish correction if needed
                 if correction_vector != [0, 0, 0, 0]:
                     corrected_position_msg = f"{correction_vector[0]},{correction_vector[1]},{correction_vector[2]}, {correction_vector[3]}"
                     self.correctDronePositionPublisher.publish(

@@ -22,7 +22,7 @@ setup(
     zip_safe=True,
     maintainer='bruno',
     maintainer_email='bcentanaro@gmail.com',
-    description='TODO: Package description',
+    description='Mission state handler, camera handler to take pictures and testing helper',
     license='Apache-2.0',
     tests_require=['pytest'],
     entry_points={

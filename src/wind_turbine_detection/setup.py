@@ -24,7 +24,7 @@ setup(
     zip_safe=True,
     maintainer='bruno',
     maintainer_email='bcentanaro@gmail.com',
-    description='TODO: Package description',
+    description='Image suscriber and related methods',
     license='Apache-2.0',
     tests_require=['pytest'],
     entry_points={

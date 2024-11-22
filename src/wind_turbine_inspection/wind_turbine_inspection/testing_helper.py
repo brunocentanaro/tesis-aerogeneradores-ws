@@ -12,6 +12,7 @@ from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
 from wind_turbine_inspection.TestResult import TestResult
 from std_msgs.msg import String
 
+# Node to assist in testing by monitoring and recording relevant data during a wind turbine inspection mission
 class TestingHelper(Node):
     def __init__(self):
         super().__init__('testing_helper')

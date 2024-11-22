@@ -7,6 +7,7 @@ class TakeoffState(InspectionState):
         super().__init__('takeoff_state', WindTurbineInspectionStage.TAKEOFF, state_machine)
         windTurbineHeight = windTurbineTypeAndLocation[self.shared_state['mission_param']]['height']
         self.startTakeoffPublisher = self.create_publisher(String, '/drone_control/start_takeoff_procedure', 10)
+        # Publishes wind turbine height
         self.startTakeoffPublisher.publish(String(data=f"{windTurbineHeight}"))
 
     def waypoint_reached_callback(self, msg):
