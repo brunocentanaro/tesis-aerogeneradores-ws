@@ -52,17 +52,21 @@ class CameraHandler(Node):
         self.br = CvBridge()
         self.current_image = None
 
+        # Create a folder to save images with a timestamp
         self.init_timestamp = str(int(time.time()))
         self.images_folder = os.path.join('images', self.init_timestamp)
         os.makedirs(self.images_folder, exist_ok=True)
 
     def waypoint_reached_callback(self, msg):
         if msg.data == "bladeStart":
+            # Start taking pictures when the blade inspection starts
             self.shouldTakePictures = True
             self.get_logger().info('Starting to take pictures')
         elif msg.data == "bladeCompleted" or msg.data == "windTurbineCompleted":
+            # Stop taking pictures when the inspection finishes
             self.shouldTakePictures = False
         elif msg.data == "bladeToBeCompleted":
+            # Take a picture when a blade is about to be completed
             self.take_picture()
             self.get_logger().info('Taking picture due to finishing blade')
 

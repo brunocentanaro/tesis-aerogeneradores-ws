@@ -20,16 +20,18 @@ class IdleState(InspectionState):
             'mission_param').get_parameter_value().integer_value
         isFrontInspectionParam = self.get_parameter(
             'front_inspection').get_parameter_value().integer_value == 1
-        self.update_shared_state('mission_param', mission_param)
-        self.update_shared_state('is_front_inspection', isFrontInspectionParam)
+        
+        # Update the shared state with mission and inspection type parameters.
+        self.update_shared_state('mission_param', mission_param) # indicates what turbine we want to inspect
+        self.update_shared_state('is_front_inspection', isFrontInspectionParam) # indicates if its a front inspection
         self.get_logger().info(f"Front inspection: {isFrontInspectionParam}")
 
         self.get_logger().info(f"Mission parameter: {mission_param}")
         self.get_logger().info("IdleState created")
         self.srv = self.create_service(
             Trigger,
-            'comenzar_inspeccion',
-            self.comenzar_inspeccion_callback)
+            'start_inspection',
+            self.start_inspection_callback)
         self.invalidFlags = None
 
         self.failsafeSub = self.create_subscription(
@@ -38,6 +40,8 @@ class IdleState(InspectionState):
             self.failsafeFlagsCallback,
             qos_profile)
 
+    # Callback function to handle failsafe flags.
+    # It checks various conditions and adds them to the invalidFlags list.
     def failsafeFlagsCallback(self, msg):
         checks = [
             'angular_velocity_invalid',
@@ -58,7 +62,8 @@ class IdleState(InspectionState):
             if getattr(msg, check):
                 self.invalidFlags.append(check)
 
-    def comenzar_inspeccion_callback(self, request, response):
+    # Callback para salir del IdleState, verifica las fallas del sistema y avanza al siguiente estado si no hay problemas.
+    def start_inspection_callback(self, request, response):
         if self.invalidFlags is None:
             response.success = False
             response.message = "Status unknown"

@@ -143,6 +143,7 @@ class OffboardControl(Node):
         self.blockNewWaypoints = False
         self.destroyExistingTimer()
 
+    # Callback for correcting the drone's position, setting a new position correction setpoint
     def correctDronePositionCallback(self, msg):
         try:
             n, e, d, yaw = map(float, msg.data.split(','))
@@ -165,6 +166,7 @@ class OffboardControl(Node):
             self.get_logger().error('Invalid waypoint format. Expected format: "height"')
             return
 
+    # Starts the takeoff procedure based on the received height message
     def startTakeoffProcedure(self, msg):
         try:
             takeoffHeight = float(msg.data)
@@ -179,6 +181,7 @@ class OffboardControl(Node):
     def advanceToNextWaypointCallback(self, msg):
         self.onWaypointReached()
 
+    # Updates the current local position of the drone
     def localPositionCallback(self, msg):
         self.currentLocalPosition = [msg.x, msg.y, msg.z]
 
@@ -197,12 +200,14 @@ class OffboardControl(Node):
         self.positionErrorPublisher.publish(
             String(data=str(distanceToDesiredPlace)))
 
+    # Updates the drone's global position (latitude, longitude, altitude)
     def globalPositionCallback(self, msg):
         self.currentPosition = [msg.lat, msg.lon, msg.alt]
 
     def listener_callback1(self, msg):
         self.currentHeading = msg.heading
 
+    # Processes the received GPS waypoint (latitude, longitude, and optionally distance)
     def gpsWaypointCallback(self, msg):
         self.get_logger().info('Received: "%s"' % msg.data)
         try:
@@ -300,6 +305,7 @@ class OffboardControl(Node):
         self.publish_offboard_control_mode()
         self.publish_trajectory_setpoint()
 
+        # Process next waypoint or adjust position
         if not self.processing_waypoint:
             if self.wayPointsStack or self.positionCorrectionSetpoint:
                 if (self.positionCorrectionSetpoint is None and self.blockNewWaypoints):

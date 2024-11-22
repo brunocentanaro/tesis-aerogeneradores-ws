@@ -37,14 +37,15 @@ class OrthogonalAlignmentState(InspectionState):
 
         self.inAnOperation = False
         self.current_substate = AlignmentSubstate.ALIGN_VERTICAL
-        self.lastPercentagesInY = []
-        self.lastAngles = []
-        self.lastDevs = []
+        self.lastPercentagesInY = []  # Stores percentages for vertical alignment
+        self.lastAngles = []          # Stores angles for horizontal alignment
+        self.lastDevs = []            # Stores deviation values for orthogonal alignment
         self.validAlignmentCounter = 0
         self.verticalSeenDistance = VERTICAL_SEEN_DISTANCE
         self.changeImageSubscriberModePublisher = self.create_publisher(
             String, 'change_mode', 10)
         self.changeImageSubscriberModePublisher.publish(String(data="1"))
+        # Determine inspection type to set approach distance
         isFrontInspection = self.shared_state['is_front_inspection']
         self.distanceToApproach = MIN_DISTANCE_FRONT_INSP if isFrontInspection else MIN_DISTANCE_BACK_INSP
 
@@ -69,6 +70,7 @@ class OrthogonalAlignmentState(InspectionState):
                 self.lastDevs.pop(0)
 
             if self.current_substate == AlignmentSubstate.ALIGN_VERTICAL:
+                # Vertical alignment: adjust height based on median Y percentage
                 if len(self.lastPercentagesInY) >= 10:
                     median_y = np.median(self.lastPercentagesInY)
                     differenceInY = median_y - 0.5
@@ -87,6 +89,7 @@ class OrthogonalAlignmentState(InspectionState):
                         self.get_logger().info("Vertical alignment complete. Moving to horizontal alignment.")
 
             elif self.current_substate == AlignmentSubstate.ALIGN_HORIZONTAL:
+                # Horizontal alignment: rotate drone (change yaw) based on median angle
                 if len(self.lastAngles) >= 10:
                     median_angle = np.median(self.lastAngles)
                     if abs(median_angle) > MIN_ANGLE_TO_ROTATE:
@@ -104,6 +107,7 @@ class OrthogonalAlignmentState(InspectionState):
                         self.get_logger().info("Horizontal alignment complete. Moving to become orthogonal.")
 
             elif self.current_substate == AlignmentSubstate.BECOME_ORTHOGONAL:
+                # Orthogonal alignment: adjust positioning to minimize deviation
                 if len(self.lastDevs) >= 10:
                     median_dev = np.median(self.lastDevs)
                     errorBetweenBlades = median_dev
@@ -120,6 +124,7 @@ class OrthogonalAlignmentState(InspectionState):
                         self.get_logger().info("Orthogonal alignment complete. Moving to intermediate approach.")
 
             elif self.current_substate == AlignmentSubstate.INTERMEDIATE_APPROACH:
+                # Gradual approach while ensuring stability
                 self.validAlignmentCounter += 1
                 if self.validAlignmentCounter >= 20:
                     remaining_distance = distanceToRotor - self.distanceToApproach

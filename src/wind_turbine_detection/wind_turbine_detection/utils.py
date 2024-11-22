@@ -4,6 +4,7 @@ import numpy as np
 from itertools import combinations
 from wind_turbine_detection.constants import CAMERA_FOV
 
+# Preprocess image and returns an array of the lines detected with hough
 def preproces_and_hough(image):
     # Convert to grayscale
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -29,6 +30,8 @@ def preproces_and_hough(image):
 
     return lines
 
+# Calculates the average deviation from orthogonality based on the difference in the distance to the left and right edge.
+# The sign of the result indicates the rotational direction needed (clockwise or counterclockwise)
 def determine_direction_with_depth(y_inverted_found, depth_image):
     vertical_edge, left_edge, right_edge = None, None, None
     positives = []
@@ -128,7 +131,8 @@ def x_at_y(m, b, y, vertical_x=None):
         return vertical_x  # Vertical line, always has a constant x
     return (y - b) / m
 
-
+# Retrieves the distance at a given point (x, y) in the depth image
+# If no valid distance is found, searches within a specified margin
 def get_distance_at_approx_x_point(x, y, depth_image, max_margin=5):
     distance = get_distance_at_point(x, y, depth_image)
     if (distance is None):
@@ -157,7 +161,7 @@ def get_distance_at_approx_x_point(x, y, depth_image, max_margin=5):
 
     return None
 
-
+# Retrieves the distance value at the specified point (x, y) from the depth image
 def get_distance_at_point(x, y, depth_image):
     x = math.floor(x)
     y = math.floor(y)
@@ -209,7 +213,8 @@ def perpendicular_slope(m):
     else:
         return -1 / m
 
-
+# Calculates the angle between two lines given their slopes (m1 and m2)
+# Handles cases where one or both lines are vertical or perpendicular
 def calculate_angle_between_lines(m1, m2):
     if m1 == float('inf') or m2 == float('inf'):
         # Case where one of the lines is vertical
@@ -231,7 +236,9 @@ def calculate_angle_between_lines(m1, m2):
         angle = math.degrees(math.atan(tan_theta))
         return angle
 
-
+# Checks if the angle between two lines (given their slopes m1 and m2) 
+# is approximately 120 degrees, allowing for a specified error margin. 
+# Also considers the supplementary angle of 60 degrees.
 def are_lines_about_120_degrees(m1, m2, error_margin=15):
     # Calculate the angle between the two lines
     angle = calculate_angle_between_lines(m1, m2)
@@ -294,7 +301,8 @@ def find_line_intersection(line1, line2, tolerance=0.1):
 
     return (int(x), int(y))
 
-
+# Calculates the average deviation from orthogonality based on the positions of vertical lines of the tower and the upper blade of the wind turbine.
+# The sign of the result indicates the rotational direction needed (clockwise or counterclockwise)
 def determine_direction(rotorY, vertical_lines, margin_error=5):
     upper_lines = []
     lower_lines = []
@@ -331,7 +339,8 @@ def determine_direction(rotorY, vertical_lines, margin_error=5):
 
     return (avg_dev * orientation)
 
-
+# Calculates the average coordinates of a set of lines by averaging the 
+# endpoints (x1, y1) and (x2, y2) for each line in the input list
 def avg_line(lines):
     sum_x1, sum_y1, sum_x2, sum_y2 = 0, 0, 0, 0
     n = len(lines)
@@ -350,7 +359,9 @@ def avg_line(lines):
 
     return np.array([[avg_x1, avg_y1, avg_x2, avg_y2]])
 
-
+# Find configurations of lines that form a 'Y' inverted shape formed by lines in the image.
+# It calculates intersections between the lines, draws them on the image, 
+# and computes the position of the rotor based on these intersections.
 def findYShape(img, lines, img_name):
     # Find configurations of lines that form a 'Y' inverted shape
     y_inverted_found = y_inverted(lines)

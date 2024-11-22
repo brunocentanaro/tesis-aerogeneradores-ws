@@ -185,7 +185,7 @@ Explicación de los parámetros del launch:
 Para indicar al dron que inicie la misión y también cuando se quiere indicar que se giraron las aspas:
 
 ```bash
-ros2 service call /comenzar_inspeccion std_srvs/srv/Trigger
+ros2 service call /start_inspection std_srvs/srv/Trigger
 ```
 
 ## Pruebas
