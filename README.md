@@ -1,11 +1,14 @@
-# Inspección Automática de Aerogeneradores con Drones
+# Inspección de Aerogeneradores con Drones Autónomos
 
 Este repositorio contiene el código desarrollado durante la realización del proyecto de grado para la carrera de Ingeniería en Computación de la Facultad de Ingeniería (Fing) de la Universidad de la República (UdelaR).
 
-El trabajo se centra en implementar un sistema para la inspección de las palas de un aerogenerador utilizando drones autónomos.
+El trabajo se centra en implementar un sistema para la inspección de las aspas de un aerogenerador utilizando drones autónomos.
 
-El control del dron se gestiona a través del firmware PX4.
-El posicionamiento del dron frente al rotor, asegurando que esté centrado y ortogonal, se logra mediante visión por computadora (computer vision) utilizando la transformada probabilística de Hough proporcionada por la librería OpenCV para detectar los componentes del aerogenerador. Además, para la planificación del trayecto del dron durante la inspección, se resolvió un Problema del Viajante Asimétrico (Asymmetric TSP) utilizando Google OR-Tools, lo que permite optimizar la ruta más corta para inspeccionar las palas de manera eficiente.
+La implementación del sistema se realizó utilizando el framework ROS 2 y el control del dron se gestiona a través del firmware PX4.
+
+Entre las principales tareas realizadas se destacan el posicionamiento del dron centrado con respecto al rotor y ortogonal al aerogenerador, y la planificación de la trayectoria a seguir para la inspección de las aspas. La primera tarea se resolvió mediante la aplicación de técnicas de visión por computadora, como la transformada probabilística de Hough y la integración de LiDAR (Light Detection and Ranging), para la detección y localización de los componentes del aerogenerador. Por su parte, la planificación de trayectorias se abordó como una instancia del Problema del Viajante Asimétrico (Asymmetric TSP), lo que permitió minimizar el tiempo de inspección y optimizar el uso de recursos. Además, se desarrolló un módulo de corrección que ajusta la posición del dron en tiempo real durante la inspección para asegurar que las aspas se mantuvieran dentro de la imagen capturada. Durante el proceso de inspección, el sistema captura fotografías en intervalos de distancia recorrida y en puntos clave, como las puntas de las aspas, para documentar el estado de las aspas.
+
+La experimentación se realizó en un entorno simulado utilizando Gazebo, evaluando el sistema bajo diversas condiciones de viento y escenarios de posicionamiento inicial del dron, lo cual permitió validar su adaptabilidad. Los resultados obtenidos evidencian que un sistema autónomo de estas características puede reducir significativamente el tiempo de inspección, contribuyendo a la eficiencia en la gestión en parques eólicos.
 
 ### Autores
 
@@ -177,10 +180,10 @@ ros2 launch wind_turbine_inspection wind_turbine_inspection.launch.py mission_ar
 
 Explicación de los parámetros del launch:
 
-- mission_arg indica que molino se quiere inspeccionar
-- front_inspection indica si se va realizar la inspeccion delantera o trasera
-- register_after_takeoff indica si se quiere registrar inmediatamente despues del takeoff (sin acercarse y colocarse ortogonal al molino)
-  Estoas parámetros son especialmente útiles para poder probar partes de la misión.
+- mission_arg: identificador del aerogenerador se quiere inspeccionar
+- front_inspection: indica si se va realizar la inspeccion delantera o trasera
+- register_after_takeoff: indica si se quiere pasar a la etapa de inspección inmediatamente despues del takeoff (sin acercarse y colocarse ortogonal al aerogenerador)
+  Estos parámetros son especialmente útiles para poder probar partes de la misión.
 
 Para indicar al dron que inicie la misión y también cuando se quiere indicar que se giraron las aspas:
 
@@ -190,9 +193,10 @@ ros2 service call /start_inspection std_srvs/srv/Trigger
 
 ## Pruebas
 
-Se debe indicar en el testing_helper.py en que estados quiero comenzar y terminar de recabar datos.
+Se debe indicar en el `testing_helper.py` en que estados quiero comenzar y terminar de recabar datos.
 
-Los entornos mencionados en el informe los genera el `worldGenerator.py`. Si se quiere correr la simulacion en un mundo especial se debe agregar el mundo luego del dron en el comando de la siguiente manera:
+Los entornos mencionados en el informe los genera el `worldGenerator.py`. 
+Con los comandos anteriores se utiliza el mundo default. Pero si se quiere correr la simulacion en un mundo particular se debe agregar el nombre del mundo luego del dron en el comando, de la siguiente manera:
 
 ```bash
 make px4_sitl gz_x500_gimbal_{nombre_mundo}
@@ -221,9 +225,9 @@ Es el nodo encargado de gestionar una serie de estados en un ciclo de operación
 
 **wind_turbine_detection:image_subscriber**:
 Se encarga de recibir imágenes de un sensor LiDAR y realizar un procesamiento basado en el estado actual del sistema.
-En el caso de que se esté en el estado `OrthogonalAlignmentState` se detecta las aspas y el rotor para poder centrar el rotor y colocar el dron ortogonal al molino.
+En el caso de que se esté en el estado `OrthogonalAlignmentState` se detecta las aspas y el rotor para poder centrar el rotor y colocar el dron ortogonal al aerogenerador.
 Si el estado es `RegistrationState` se detecta el centroide del aspa para poder centrar el mismo en el frame y que el aspa no se salga del frame.
 
 ## Informe
 
-Para más información, el informe se encuentra en [documentos](/documents).
+Para más información, el informe del proyecto se encuentra en [documentos](/documents).
